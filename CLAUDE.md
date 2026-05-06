@@ -61,14 +61,36 @@ SQL Output
 - 主要：File System Access API（讀寫本機 `.md` 格式檔案）
 - Fallback：手動匯入/匯出（`<input type="file">` + `Blob` 下載）
 
-## 開發分期
+## 建置順序（8 階段）
 
-| 期次 | 功能 |
+| 階段 | 項目 |
 |------|------|
-| Phase 1 | DDL Parser + SELECT（含 WHERE / ORDER / LIMIT） |
-| Phase 2 | 多表 JOIN（FK 偵測 + 自動推薦） |
-| Phase 3 | DML 模板（INSERT / UPDATE / DELETE） |
-| Phase 4 | ERD 關聯圖（Mermaid.js 互動節點） |
+| 1 | DDL Parser 核心（Table / Column / FK 解析） |
+| 2 | SELECT UI + 即時 SQL 預覽 |
+| 3 | WHERE / ORDER BY / LIMIT 條件設定 |
+| 4 | JOIN 多表查詢（FK 推薦 + Alias 處理） |
+| 5 | DML 模板（INSERT / UPDATE / DELETE） |
+| 6 | ERD 關聯圖（Mermaid.js 互動節點） |
+| 7 | 資料儲存（File System Access API + 降級匯出入） |
+| 8 | 離線打包與跨瀏覽器驗證 |
+
+## 離線打包
+
+發布時將所有 CDN 函式庫下載後 inline 進 HTML：
+
+```bash
+curl -o vue.global.js https://unpkg.com/vue@3/dist/vue.global.prod.js
+curl -o tailwind.js https://cdn.tailwindcss.com
+curl -o mermaid.min.js https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js
+```
+
+將下載內容分別貼入對應 `<script>` 標籤。inline 後體積約 1–2 MB，Mermaid 建議延遲載入以加快初始開啟速度。
+
+## 儲存格式
+
+以 `.md` 檔儲存，DDL 與查詢設定以 code block 結構存放，人類可讀且適合版控。換電腦時複製 `.md` 檔 → 重新選擇即可還原。
+
+File System Access API 僅支援 Chrome / Edge；Firefox 自動降級為手動匯出入。
 
 ## 關鍵邊界條件（DDL Parser）
 
