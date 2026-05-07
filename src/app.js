@@ -1,5 +1,5 @@
 // app.js：Vue 3 主應用程式入口
-// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁與 SQL 即時產生
+// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢與 SQL 即時產生
 (function () {
   const { createApp, ref, computed } = Vue
 
@@ -8,7 +8,8 @@
       TablePanel: window.TablePanelComponent,
       SqlPreview: window.SqlPreviewComponent,
       ConditionBuilder: window.ConditionBuilderComponent,
-      SortLimitPanel: window.SortLimitPanelComponent
+      SortLimitPanel: window.SortLimitPanelComponent,
+      JoinBuilder: window.JoinBuilderComponent
     },
     setup() {
       const rawDdl = ref('')
@@ -23,6 +24,10 @@
       const orderBy = ref([])
       const limit = ref(0)
       const offset = ref(0)
+
+      // Phase 4 新增：JOIN 多表查詢狀態
+      const joins = ref([])
+      const joinMode = ref(false)  // 控制是否顯示 JOIN 設定區
 
       // 解析 DDL
       function handleParse() {
@@ -39,12 +44,14 @@
         }
       }
 
-      // 切換 table 時同步清空條件與排序，避免殘留上一張表的設定
+      // 切換 table 時同步清空條件、排序與 JOIN，避免殘留上一張表的設定
       function setSelectedTable(t) {
         selectedTable.value = t
         selectedColumns.value = []
         where.value = []
         orderBy.value = []
+        joins.value = []
+        joinMode.value = false
       }
 
       // 當前選中 table 的欄位定義，供 ConditionBuilder 與 SortLimitPanel 使用
@@ -52,9 +59,38 @@
         tables.value.find(t => t.tableName === selectedTable.value)?.columns || []
       )
 
+      // JOIN 模式下所有參與 table 的欄位（帶 table 前綴），供欄位選取使用
+      // 業務背景：多表查詢時欄位來自不同資料表，需標示來源才能正確組出 SQL
+      const joinColumns = computed(() => {
+        if (!joinMode.value || joins.value.length === 0) return []
+        const allTables = [selectedTable.value, ...joins.value.map(j => j.toTable)]
+        return allTables.flatMap(tName => {
+          const t = tables.value.find(x => x.tableName === tName)
+          return t ? t.columns.map(c => ({ table: tName, column: c.name })) : []
+        })
+      })
+
       // 即時產生 SQL（computed 自動追蹤所有相關 ref 變更）
       const sqlOutput = computed(() => {
         if (!selectedTable.value) return ''
+        // JOIN 模式：使用 joinBuilder 組出含 JOIN 子句的完整 SQL
+        if (joinMode.value && joins.value.length > 0) {
+          const cols = selectedColumns.value.map(s => {
+            const parts = s.split('.')
+            // "table.column" 格式拆解，純欄位名稱則歸屬 baseTable
+            return parts.length === 2 ? { table: parts[0], column: parts[1] } : { table: selectedTable.value, column: s }
+          })
+          return window.joinBuilder.buildJoinSql({
+            baseTable: selectedTable.value,
+            joins: joins.value,
+            columns: cols,
+            where: where.value,
+            orderBy: orderBy.value,
+            limit: limit.value,
+            offset: offset.value
+          })
+        }
+        // 單表模式：使用原有 buildSelect
         return window.buildSelect({
           tableName: selectedTable.value,
           columns: selectedColumns.value,
@@ -70,6 +106,7 @@
         parseError, sqlOutput,
         where, orderBy, limit, offset,
         currentTableColumns,
+        joins, joinMode, joinColumns,
         handleParse,
         setSelectedTable,
         setSelectedColumns(cols) { selectedColumns.value = cols }
@@ -101,6 +138,14 @@
           </div>
         </div>
 
+        <!-- JOIN 模式開關（選了 table 才顯示） -->
+        <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
+          <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+            <input type="checkbox" v-model="joinMode" class="accent-indigo-500" />
+            啟用 JOIN 多表查詢
+          </label>
+        </div>
+
         <!-- 主工作區：Table 選擇 + SQL 預覽 -->
         <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height: 400px">
           <TablePanel
@@ -115,6 +160,16 @@
 
         <!-- 條件設定區（選了 table 才顯示） -->
         <div v-if="selectedTable" class="grid grid-cols-2 gap-6">
+          <!-- JOIN 設定：跨越兩欄，只在 JOIN 模式下顯示 -->
+          <div v-if="joinMode && selectedTable" class="col-span-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">JOIN 設定</div>
+            <JoinBuilder
+              :tables="tables"
+              :base-table="selectedTable"
+              :joins="joins"
+              @update-joins="joins = $event"
+            />
+          </div>
           <ConditionBuilder
             :columns="currentTableColumns"
             :where="where"
