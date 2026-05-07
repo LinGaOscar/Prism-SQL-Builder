@@ -3,3 +3,8 @@ node_modules/
 tailwind.css
 vendor/
 prism.html
+.claude/
+*.md
+!README.md
+!CLAUDE.md
+!PLAN.md
