@@ -25,7 +25,7 @@
   /**
    * 產生 INSERT 模板。
    * 排除 AUTO_INCREMENT 欄位（由 DB 自動產生，無需傳值）；
-   * NOT NULL 欄位加 /* required */ 註解提示呼叫端必填。
+   * NOT NULL 欄位加 [required] 註解提示呼叫端必填。
    * @param {Object} table - TableSchema
    * @param {'named'|'positional'} style
    * @returns {string}
