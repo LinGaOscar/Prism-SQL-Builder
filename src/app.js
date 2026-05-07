@@ -1,12 +1,14 @@
 // app.js：Vue 3 主應用程式入口
-// 整合 DDL 解析、欄位選擇、SQL 即時產生三大功能
+// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁與 SQL 即時產生
 (function () {
   const { createApp, ref, computed } = Vue
 
   const app = createApp({
     components: {
       TablePanel: window.TablePanelComponent,
-      SqlPreview: window.SqlPreviewComponent
+      SqlPreview: window.SqlPreviewComponent,
+      ConditionBuilder: window.ConditionBuilderComponent,
+      SortLimitPanel: window.SortLimitPanelComponent
     },
     setup() {
       const rawDdl = ref('')
@@ -16,6 +18,12 @@
       // DDL 輸入框錯誤訊息
       const parseError = ref('')
 
+      // Phase 3 新增：WHERE 條件、排序、分頁狀態
+      const where = ref([])
+      const orderBy = ref([])
+      const limit = ref(0)
+      const offset = ref(0)
+
       // 解析 DDL
       function handleParse() {
         parseError.value = ''
@@ -24,25 +32,46 @@
           tables.value = result
           selectedTable.value = result.length > 0 ? result[0].tableName : ''
           selectedColumns.value = []
+          where.value = []
+          orderBy.value = []
         } catch (e) {
           parseError.value = '解析失敗：' + e.message
         }
       }
 
-      // 即時產生 SQL（computed 自動追蹤 selectedTable 與 selectedColumns 變更）
+      // 切換 table 時同步清空條件與排序，避免殘留上一張表的設定
+      function setSelectedTable(t) {
+        selectedTable.value = t
+        selectedColumns.value = []
+        where.value = []
+        orderBy.value = []
+      }
+
+      // 當前選中 table 的欄位定義，供 ConditionBuilder 與 SortLimitPanel 使用
+      const currentTableColumns = computed(() =>
+        tables.value.find(t => t.tableName === selectedTable.value)?.columns || []
+      )
+
+      // 即時產生 SQL（computed 自動追蹤所有相關 ref 變更）
       const sqlOutput = computed(() => {
         if (!selectedTable.value) return ''
         return window.buildSelect({
           tableName: selectedTable.value,
-          columns: selectedColumns.value
+          columns: selectedColumns.value,
+          where: where.value,
+          orderBy: orderBy.value,
+          limit: limit.value,
+          offset: offset.value
         })
       })
 
       return {
         rawDdl, tables, selectedTable, selectedColumns,
         parseError, sqlOutput,
+        where, orderBy, limit, offset,
+        currentTableColumns,
         handleParse,
-        setSelectedTable(t) { selectedTable.value = t },
+        setSelectedTable,
         setSelectedColumns(cols) { selectedColumns.value = cols }
       }
     },
@@ -82,6 +111,24 @@
             @update-columns="setSelectedColumns"
           />
           <SqlPreview :sql="sqlOutput" />
+        </div>
+
+        <!-- 條件設定區（選了 table 才顯示） -->
+        <div v-if="selectedTable" class="grid grid-cols-2 gap-6">
+          <ConditionBuilder
+            :columns="currentTableColumns"
+            :where="where"
+            @update-where="where = $event"
+          />
+          <SortLimitPanel
+            :columns="currentTableColumns"
+            :order-by="orderBy"
+            :limit="limit"
+            :offset="offset"
+            @update-order-by="orderBy = $event"
+            @update-limit="limit = $event"
+            @update-offset="offset = $event"
+          />
         </div>
       </div>
     `
