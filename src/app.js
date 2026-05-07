@@ -1,5 +1,5 @@
 // app.js：Vue 3 主應用程式入口
-// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢、DML 模板與 SQL 即時產生
+// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢、DML 模板、ERD 關聯圖與 SQL 即時產生
 (function () {
   const { createApp, ref, computed } = Vue
 
@@ -10,7 +10,8 @@
       ConditionBuilder: window.ConditionBuilderComponent,
       SortLimitPanel: window.SortLimitPanelComponent,
       JoinBuilder: window.JoinBuilderComponent,
-      DmlPanel: window.DmlPanelComponent
+      DmlPanel: window.DmlPanelComponent,
+      ErdPanel: window.ErdPanelComponent
     },
     setup() {
       const rawDdl = ref('')
@@ -110,6 +111,12 @@
         })
       })
 
+      // 點擊 ERD 節點：切換至對應 table 並跳回查詢 tab
+      function goToTable(tableName) {
+        setSelectedTable(tableName)
+        activeTab.value = 'query'
+      }
+
       return {
         rawDdl, tables, selectedTable, selectedColumns,
         parseError, sqlOutput,
@@ -119,6 +126,7 @@
         activeTab,
         handleParse,
         setSelectedTable,
+        goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols }
       }
     },
@@ -150,7 +158,7 @@
 
         <!-- Tab 切換列（選了 table 才顯示） -->
         <div v-if="tables.length > 0" class="flex border-b border-gray-700 gap-1">
-          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML 模板']]" :key="tab[0]"
+          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML 模板'],['erd','ERD 關聯圖']]" :key="tab[0]"
                   @click="activeTab = tab[0]"
                   :class="[
                     'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
@@ -216,6 +224,14 @@
         <!-- DML 模板頁籤內容 -->
         <div v-show="activeTab === 'dml'" class="pt-4">
           <DmlPanel :table="currentTable" />
+        </div>
+
+        <!-- ERD 關聯圖頁籤內容 -->
+        <div v-show="activeTab === 'erd'" class="pt-4">
+          <ErdPanel
+            :tables="tables"
+            @select-table="goToTable"
+          />
         </div>
       </div>
     `
