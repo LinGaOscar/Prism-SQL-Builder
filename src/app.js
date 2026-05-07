@@ -325,27 +325,42 @@
       }
     },
     template: `
-      <div class="max-w-6xl mx-auto p-6 flex flex-col gap-6">
+      <div class="min-h-screen bg-zinc-50 dark:bg-[#111111]">
+        <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-8">
+
         <!-- localStorage 遷移提示 toast -->
         <div v-if="showMigratePrompt"
-             class="fixed top-4 right-4 bg-gray-100 dark:bg-gray-800 border border-indigo-500 rounded-lg p-4 shadow-xl z-50 max-w-sm">
-          <p class="text-sm text-gray-800 dark:text-gray-200 mb-3">偵測到上次的工作狀態，已自動還原。<br>是否儲存為 .md 檔以便下次直接開啟？</p>
+             class="fixed top-5 right-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 shadow-lg z-50 max-w-xs">
+          <p class="text-sm text-zinc-700 dark:text-zinc-300 mb-4 leading-relaxed">偵測到上次的工作狀態，已自動還原。<br>是否儲存為 .md 檔？</p>
           <div class="flex gap-2">
-            <button @click="confirmMigrate" class="text-sm px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white">儲存為 .md</button>
-            <button @click="dismissMigrate" class="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">略過</button>
+            <button @click="confirmMigrate" class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">儲存為 .md</button>
+            <button @click="dismissMigrate" class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">略過</button>
           </div>
         </div>
 
         <!-- Header -->
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Prism SQL Builder</h1>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">貼入 DDL，視覺化產生 SQL 查詢</p>
+        <header class="flex items-center justify-between pb-6 border-b border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center gap-3">
+            <!-- Prism 色彩稜柱圖示 -->
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <polygon points="14,2 26,24 2,24" fill="none" stroke="url(#pg)" stroke-width="1.5"/>
+              <defs>
+                <linearGradient id="pg" x1="2" y1="24" x2="26" y2="2" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#6366f1"/>
+                  <stop offset="0.5" stop-color="#8b5cf6"/>
+                  <stop offset="1" stop-color="#ec4899"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div>
+              <h1 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Prism</h1>
+              <p class="text-xs text-zinc-400 dark:text-zinc-500 tracking-wide">SQL Query Builder</p>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <!-- 方言選擇器：影響分頁語法（LIMIT vs OFFSET...FETCH） -->
             <select v-model="dialect"
-                    class="text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    class="text-xs px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer">
               <option value="mysql">MySQL</option>
               <option value="postgresql">PostgreSQL</option>
               <option value="mssql">MSSQL</option>
@@ -353,55 +368,64 @@
             </select>
             <!-- 深色/淺色模式切換按鈕 -->
             <button @click="toggleTheme"
-                    class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    class="w-8 h-8 flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-sm"
                     :title="isDark ? '切換淺色模式' : '切換深色模式'">
               {{ isDark ? '☀' : '🌙' }}
             </button>
             <!-- FSA 支援時顯示開啟/儲存；不支援時顯示匯入/匯出 -->
             <template v-if="fsSupported">
-              <button @click="openFromFile" class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:border-gray-400 text-gray-700 dark:text-gray-300">開啟</button>
-              <button @click="saveToFile" class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">
+              <button @click="openFromFile"
+                      class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                開啟
+              </button>
+              <button @click="saveToFile"
+                      class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
                 {{ fileHandle ? '儲存' : '另存新檔' }}
               </button>
             </template>
             <template v-else>
-              <label class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:border-gray-400 text-gray-700 dark:text-gray-300 cursor-pointer">
+              <label class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
                 匯入
                 <input type="file" accept=".md,.txt" class="hidden" @change="importFromInput" />
               </label>
-              <button @click="exportFile" class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">匯出</button>
+              <button @click="exportFile"
+                      class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
+                匯出
+              </button>
             </template>
             <span v-if="saveStatus" class="text-xs text-green-700 dark:text-green-400">{{ saveStatus }}</span>
           </div>
-        </div>
+        </header>
 
         <!-- DDL 輸入區 -->
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">DDL 輸入</label>
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
+            <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">DDL</span>
+            <div class="flex items-center gap-2">
+              <button @click="handleParse"
+                      class="text-xs px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
+                解析
+              </button>
+              <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
+            </div>
+          </div>
           <textarea
             v-model="rawDdl"
-            rows="6"
+            rows="7"
             placeholder="貼入 CREATE TABLE ... 語法"
-            class="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded p-3 text-sm font-mono border border-gray-300 dark:border-gray-700 focus:outline-none focus:border-indigo-500 resize-y">
+            class="w-full bg-transparent text-zinc-800 dark:text-zinc-200 px-4 py-3 text-sm font-code border-none outline-none resize-y placeholder:text-zinc-300 dark:placeholder:text-zinc-600">
           </textarea>
-          <div class="flex items-center gap-3 mt-2">
-            <button @click="handleParse"
-                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded font-medium transition-colors">
-              解析 DDL
-            </button>
-            <span v-if="parseError" class="text-red-600 dark:text-red-400 text-sm">{{ parseError }}</span>
-          </div>
         </div>
 
         <!-- Tab 切換列（選了 table 才顯示） -->
-        <div v-if="tables.length > 0" class="flex border-b border-gray-300 dark:border-gray-700 gap-1">
-          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML 模板'],['erd','ERD 關聯圖']]" :key="tab[0]"
+        <div v-if="tables.length > 0" class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML'],['erd','ERD']]" :key="tab[0]"
                   @click="activeTab = tab[0]"
                   :class="[
-                    'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                    'px-4 py-2.5 text-sm -mb-px border-b-2 transition-colors',
                     activeTab === tab[0]
-                      ? 'border-indigo-500 text-indigo-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 font-medium'
+                      : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   ]">
             {{ tab[1] }}
           </button>
@@ -410,40 +434,44 @@
         <!-- SELECT / JOIN 查詢頁籤內容 -->
         <div v-show="activeTab === 'query'">
           <!-- 儲存目前查詢 -->
-          <div v-if="selectedTable" class="flex items-center gap-2 mb-3">
+          <div v-if="selectedTable" class="flex items-center gap-2 mb-4">
             <input v-model="saveQueryName"
-                   placeholder="查詢名稱（選填）"
-                   class="flex-1 text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200" />
+                   placeholder="為目前查詢命名…"
+                   class="flex-1 text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:border-indigo-400 transition-colors outline-none" />
             <button @click="saveCurrentQuery"
-                    class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">
-              儲存查詢
+                    class="text-xs px-3 py-1.5 rounded-md border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors whitespace-nowrap">
+              + 儲存查詢
             </button>
           </div>
 
           <!-- 已儲存查詢列表 -->
-          <div v-if="savedQueries.length > 0" class="mb-4">
-            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">已儲存查詢</div>
-            <div class="flex flex-wrap gap-2">
+          <div v-if="savedQueries.length > 0" class="mb-5">
+            <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">已儲存查詢</div>
+            <div class="flex flex-wrap gap-1.5">
               <div v-for="(q, idx) in savedQueries" :key="idx"
-                   class="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                   class="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs">
                 <button @click="loadQuery(q)"
-                        class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{{ q.name }}</button>
+                        class="text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                  {{ q.name }}
+                </button>
                 <button @click="deleteQuery(idx)"
-                        class="text-gray-400 hover:text-red-500 text-xs px-1">✕</button>
+                        class="w-4 h-4 flex items-center justify-center rounded-full text-zinc-300 dark:text-zinc-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                  ✕
+                </button>
               </div>
             </div>
           </div>
 
           <!-- JOIN 模式開關（選了 table 才顯示） -->
-          <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
-              <input type="checkbox" v-model="joinMode" class="accent-indigo-500" />
+          <div class="flex items-center gap-3 mb-4" v-if="selectedTable">
+            <label class="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer select-none hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
+              <input type="checkbox" v-model="joinMode" class="accent-indigo-500 cursor-pointer" />
               啟用 JOIN 多表查詢
             </label>
           </div>
 
           <!-- 主工作區：Table 選擇 + SQL 預覽 -->
-          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height: 400px">
+          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height:420px">
             <TablePanel
               :tables="tables"
               :selected-table="selectedTable"
@@ -458,7 +486,7 @@
           <div v-if="selectedTable" class="grid grid-cols-2 gap-6 mt-6">
             <!-- JOIN 設定：跨越兩欄，只在 JOIN 模式下顯示 -->
             <div v-if="joinMode && selectedTable" class="col-span-2">
-              <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">JOIN 設定</div>
+              <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">JOIN 設定</div>
               <JoinBuilder
                 :tables="tables"
                 :base-table="selectedTable"
@@ -494,6 +522,8 @@
             :tables="tables"
             @select-table="goToTable"
           />
+        </div>
+
         </div>
       </div>
     `

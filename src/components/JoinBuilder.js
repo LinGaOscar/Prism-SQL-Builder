@@ -65,44 +65,46 @@ window.JoinBuilderComponent = {
     <div class="flex flex-col gap-4">
       <!-- FK 推薦：依解析出的 FK 自動列出建議，一鍵加入省去手動查找 -->
       <div v-if="suggestions.length > 0">
-        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">建議 JOIN（依 FK）</div>
+        <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">建議 JOIN（依 FK）</div>
         <div v-for="s in suggestions" :key="s.toTable"
-             class="flex items-center gap-2 mb-1 text-sm text-gray-500 dark:text-gray-400">
+             class="flex items-center gap-2 mb-2 p-2 rounded-md bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-400">
           <span class="flex-1">{{ s.fromTable }}.{{ s.fromCol }} → {{ s.toTable }}.{{ s.toCol }}</span>
           <button @click="addSuggestion(s)"
-                  class="text-xs px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white">+ 加入</button>
+                  class="text-xs px-2.5 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap">+ 加入</button>
         </div>
       </div>
 
       <!-- 已加入的 JOIN 列表 -->
       <div>
-        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">JOIN 列表</div>
-        <div v-if="joins.length === 0" class="text-gray-400 dark:text-gray-600 text-xs">尚未加入任何 JOIN</div>
-        <div v-for="(j, idx) in joins" :key="idx" class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+        <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">JOIN 列表</div>
+        <div v-if="joins.length === 0" class="text-zinc-400 dark:text-zinc-600 text-xs">尚未加入任何 JOIN</div>
+        <div v-for="(j, idx) in joins" :key="idx"
+             class="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md bg-white dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
           <!-- JOIN 類型選擇 -->
           <select :value="j.type" @change="updateJoinType(idx, $event.target.value)"
-                  class="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-700">
+                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors">
             <option v-for="t in JOIN_TYPES" :key="t" :value="t">{{ t }}</option>
           </select>
-          <span class="text-gray-500 dark:text-gray-400">JOIN {{ j.toTable }} ON</span>
+          <span class="text-zinc-500 dark:text-zinc-400 text-xs">JOIN {{ j.toTable }} ON</span>
           <!-- fromCol：FK 推薦時自動填入，手動新增時留空 -->
           <input :value="j.fromCol" @input="updateJoinCol(idx, 'fromCol', $event.target.value)"
                  :placeholder="j.fromTable + '.col'"
-                 class="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-700 w-32" />
-          <span class="text-gray-400 dark:text-gray-500">=</span>
+                 class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-32" />
+          <span class="text-zinc-400 dark:text-zinc-500 text-xs">=</span>
           <!-- toCol -->
           <input :value="j.toCol" @input="updateJoinCol(idx, 'toCol', $event.target.value)"
                  :placeholder="j.toTable + '.col'"
-                 class="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-700 w-32" />
-          <button @click="removeJoin(idx)" class="text-gray-400 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 px-1">✕</button>
+                 class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-32" />
+          <button @click="removeJoin(idx)"
+                  class="text-zinc-300 dark:text-zinc-600 hover:text-red-500 text-xs px-1 transition-colors">✕</button>
         </div>
       </div>
 
       <!-- 手動新增：從尚未加入的資料表選一個，ON 條件由使用者手動輸入 -->
       <div v-if="availableTables.length > 0" class="flex items-center gap-2">
-        <span class="text-xs text-gray-400 dark:text-gray-500">手動加入：</span>
+        <span class="text-xs text-zinc-400 dark:text-zinc-500">手動加入：</span>
         <select @change="addManual($event.target.value); $event.target.value = ''"
-                class="bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-700">
+                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors">
           <option value="">選擇資料表…</option>
           <option v-for="t in availableTables" :key="t" :value="t">{{ t }}</option>
         </select>
