@@ -36,11 +36,12 @@ const writable = await handle.createWritable()
 await writable.write(text); await writable.close()
 ```
 
-**Tailwind CSS CLI（v4）**
+**Tailwind CSS（獨立執行檔，無需 npm）**
 ```bash
-npm install tailwindcss @tailwindcss/cli
-# input.css: @import "tailwindcss";
-npx @tailwindcss/cli -i ./src/input.css -o ./tailwind.css --minify
+# 首次下載（Windows）
+curl -LO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
+# 產生 CSS（input.css 內容：@import "tailwindcss";）
+./tailwindcss-windows-x64.exe -i ./src/input.css -o ./tailwind.css --minify
 ```
 
 ---

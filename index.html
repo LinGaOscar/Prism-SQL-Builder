@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism SQL Builder</title>
+  <link rel="stylesheet" href="./tailwind.css">
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <div id="app"></div>
+
+  <!-- 依賴載入順序：Vue → Parser → Builder → Components → App -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="./src/parser/ddl-parser.js"></script>
+  <script src="./src/builder/select-builder.js"></script>
+  <script src="./src/components/TablePanel.js"></script>
+  <script src="./src/components/SqlPreview.js"></script>
+  <script src="./src/app.js"></script>
+</body>
+</html>

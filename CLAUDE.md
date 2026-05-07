@@ -20,13 +20,17 @@ open index.html           # macOS
 # 或用 VS Code Live Server 取得 HMR 效果
 ```
 
-### Tailwind CSS（CLI 模式）
+### Tailwind CSS（獨立執行檔）
 
-開發期間用 CLI 掃描 HTML 產生靜態 CSS，不引入 runtime JS：
+不需要 Node.js 或 npm。使用官方獨立執行檔，一次下載即可重複使用：
 
 ```bash
-npm install -D tailwindcss
-npx tailwindcss -i ./input.css -o ./tailwind.css --minify
+# 首次：下載獨立執行檔（存放於專案根目錄，已加入 .gitignore）
+curl -LO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
+Rename-Item tailwindcss-windows-x64.exe tailwindcss.exe   # PowerShell
+
+# 每次新增 Tailwind class 後重新產生（開發期間可加 --watch）
+./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
 ```
 
 ### 目錄結構（開發階段）
@@ -62,7 +66,7 @@ src/
 | 用途 | 技術 | 載入方式 |
 |------|------|----------|
 | 響應式 UI | Vue 3 | CDN → 發布時 inline |
-| 樣式 | Tailwind CSS | CDN → 發布時 inline |
+| 樣式 | Tailwind CSS | 獨立執行檔產生靜態 CSS → 發布時 inline |
 | ERD 圖表 | Mermaid.js | CDN → 發布時 inline |
 | DDL 解析 | 自製 Parser | 內嵌 JS |
 
