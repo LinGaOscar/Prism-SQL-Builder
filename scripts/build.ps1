@@ -91,8 +91,17 @@ $appJs
 </html>
 "@
 
-$outFile = Join-Path $root 'prism.html'
+# CI 環境（GitHub Actions）輸出至 dist/index.html，本地輸出至 prism.html
+if ($env:CI) {
+  $distDir = Join-Path $root 'dist'
+  if (!(Test-Path $distDir)) { New-Item -ItemType Directory $distDir | Out-Null }
+  $outFile = Join-Path $distDir 'index.html'
+} else {
+  $outFile = Join-Path $root 'prism.html'
+}
+
 [System.IO.File]::WriteAllText($outFile, $html, [System.Text.Encoding]::UTF8)
 
 $size = [math]::Round((Get-Item $outFile).Length / 1MB, 2)
-Write-Host "✓ prism.html 產生完成，大小：${size} MB" -ForegroundColor Green
+$label = if ($env:CI) { 'dist/index.html' } else { 'prism.html' }
+Write-Host "✓ $label 產生完成，大小：${size} MB" -ForegroundColor Green
