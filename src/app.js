@@ -80,12 +80,34 @@
         }
       }
 
-      // 從 .sql 檔匯入 DDL：讀取後自動解析，免去手動貼上步驟
+      // 追加解析：將新 DDL 合併進現有 tables，依 tableName 去重（新增不覆蓋）
+      function handleAppend() {
+        parseError.value = ''
+        try {
+          const result = window.parseDDL(rawDdl.value)
+          const existingNames = new Set(tables.value.map(t => t.tableName))
+          const newTables = result.filter(t => !existingNames.has(t.tableName))
+          tables.value = [...tables.value, ...newTables]
+          if (!selectedTable.value && tables.value.length > 0) {
+            selectedTable.value = tables.value[0].tableName
+          }
+          rawDdl.value = ''
+        } catch (e) {
+          parseError.value = '解析失敗：' + e.message
+        }
+      }
+
+      // 從 .sql 檔匯入 DDL：追加模式，允許多個 DDL 檔案一起使用 JOIN
       async function importSqlFile(event) {
         const file = event.target.files[0]
         if (!file) return
         rawDdl.value = await file.text()
-        handleParse()
+        // 若已有 tables 則追加，否則直接解析（首次匯入）
+        if (tables.value.length > 0) {
+          handleAppend()
+        } else {
+          handleParse()
+        }
         event.target.value = ''  // 允許重複選同一個檔案
       }
 
@@ -361,7 +383,7 @@
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
         started, showStart,
-        handleParse, importSqlFile,
+        importSqlFile,
         setSelectedTable,
         goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols },
@@ -527,28 +549,23 @@
           </div>
         </header>
 
-        <!-- DDL 輸入區 -->
+        <!-- DDL 匯入列 -->
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
-          <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
-            <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">DDL</span>
+          <div class="flex items-center justify-between px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">DDL</span>
+              <span v-if="tables.length > 0" class="text-[11px] text-zinc-400 dark:text-zinc-500">
+                · {{ tables.length }} 張資料表
+              </span>
+            </div>
             <div class="flex items-center gap-2">
               <label class="text-xs px-3 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
-                匯入 .sql
+                {{ tables.length > 0 ? '追加 .sql' : '匯入 .sql' }}
                 <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
               </label>
-              <button @click="handleParse"
-                      class="text-xs px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
-                解析
-              </button>
               <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
             </div>
           </div>
-          <textarea
-            v-model="rawDdl"
-            rows="7"
-            placeholder="貼入 CREATE TABLE ... 語法，或點擊「匯入 .sql」選擇檔案"
-            class="w-full bg-transparent text-zinc-800 dark:text-zinc-200 px-4 py-3 text-sm font-code border-none outline-none resize-y placeholder:text-zinc-300 dark:placeholder:text-zinc-600">
-          </textarea>
         </div>
 
         <!-- Tab 切換列（選了 table 才顯示） -->
