@@ -80,6 +80,15 @@
         }
       }
 
+      // 從 .sql 檔匯入 DDL：讀取後自動解析，免去手動貼上步驟
+      async function importSqlFile(event) {
+        const file = event.target.files[0]
+        if (!file) return
+        rawDdl.value = await file.text()
+        handleParse()
+        event.target.value = ''  // 允許重複選同一個檔案
+      }
+
       // 切換 table 時同步清空條件、排序與 JOIN，避免殘留上一張表的設定
       function setSelectedTable(t) {
         selectedTable.value = t
@@ -176,6 +185,17 @@
           }
         } catch (_) {}
       })
+
+      // 自動儲存：DDL 或查詢清單變更時，若已設定儲存位置則延遲 1.5 秒寫入
+      // 業務背景：避免每次細微操作都立即寫磁碟，同時確保使用者不需手動按儲存
+      let _autoSaveTimer = null
+      function scheduleAutoSave() {
+        if (!saveDir.value && !fileHandle.value) return
+        clearTimeout(_autoSaveTimer)
+        _autoSaveTimer = setTimeout(() => saveToFile(), 1500)
+      }
+      watch(rawDdl, scheduleAutoSave)
+      watch(savedQueries, scheduleAutoSave, { deep: true })
 
       // 儲存至 .md 檔；優先寫入指定目錄，其次使用既有 handle，最後開啟另存對話框
       async function saveToFile() {
@@ -341,7 +361,7 @@
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
         started, showStart,
-        handleParse,
+        handleParse, importSqlFile,
         setSelectedTable,
         goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols },
@@ -512,6 +532,10 @@
           <div class="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
             <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">DDL</span>
             <div class="flex items-center gap-2">
+              <label class="text-xs px-3 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                匯入 .sql
+                <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
+              </label>
               <button @click="handleParse"
                       class="text-xs px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
                 解析
@@ -522,7 +546,7 @@
           <textarea
             v-model="rawDdl"
             rows="7"
-            placeholder="貼入 CREATE TABLE ... 語法"
+            placeholder="貼入 CREATE TABLE ... 語法，或點擊「匯入 .sql」選擇檔案"
             class="w-full bg-transparent text-zinc-800 dark:text-zinc-200 px-4 py-3 text-sm font-code border-none outline-none resize-y placeholder:text-zinc-300 dark:placeholder:text-zinc-600">
           </textarea>
         </div>
