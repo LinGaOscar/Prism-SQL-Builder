@@ -1,5 +1,5 @@
 // app.js：Vue 3 主應用程式入口
-// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢與 SQL 即時產生
+// 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢、DML 模板與 SQL 即時產生
 (function () {
   const { createApp, ref, computed } = Vue
 
@@ -9,7 +9,8 @@
       SqlPreview: window.SqlPreviewComponent,
       ConditionBuilder: window.ConditionBuilderComponent,
       SortLimitPanel: window.SortLimitPanelComponent,
-      JoinBuilder: window.JoinBuilderComponent
+      JoinBuilder: window.JoinBuilderComponent,
+      DmlPanel: window.DmlPanelComponent
     },
     setup() {
       const rawDdl = ref('')
@@ -28,6 +29,9 @@
       // Phase 4 新增：JOIN 多表查詢狀態
       const joins = ref([])
       const joinMode = ref(false)  // 控制是否顯示 JOIN 設定區
+
+      // Phase 5 新增：tab 切換，query = SELECT/JOIN 查詢，dml = DML 模板
+      const activeTab = ref('query')
 
       // 解析 DDL
       function handleParse() {
@@ -57,6 +61,11 @@
       // 當前選中 table 的欄位定義，供 ConditionBuilder 與 SortLimitPanel 使用
       const currentTableColumns = computed(() =>
         tables.value.find(t => t.tableName === selectedTable.value)?.columns || []
+      )
+
+      // 當前選中的完整 TableSchema，供 DmlPanel 使用
+      const currentTable = computed(() =>
+        tables.value.find(t => t.tableName === selectedTable.value) || null
       )
 
       // JOIN 模式下所有參與 table 的欄位（帶 table 前綴），供欄位選取使用
@@ -105,8 +114,9 @@
         rawDdl, tables, selectedTable, selectedColumns,
         parseError, sqlOutput,
         where, orderBy, limit, offset,
-        currentTableColumns,
+        currentTableColumns, currentTable,
         joins, joinMode, joinColumns,
+        activeTab,
         handleParse,
         setSelectedTable,
         setSelectedColumns(cols) { selectedColumns.value = cols }
@@ -138,52 +148,74 @@
           </div>
         </div>
 
-        <!-- JOIN 模式開關（選了 table 才顯示） -->
-        <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
-          <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-            <input type="checkbox" v-model="joinMode" class="accent-indigo-500" />
-            啟用 JOIN 多表查詢
-          </label>
+        <!-- Tab 切換列（選了 table 才顯示） -->
+        <div v-if="tables.length > 0" class="flex border-b border-gray-700 gap-1">
+          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML 模板']]" :key="tab[0]"
+                  @click="activeTab = tab[0]"
+                  :class="[
+                    'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                    activeTab === tab[0]
+                      ? 'border-indigo-500 text-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  ]">
+            {{ tab[1] }}
+          </button>
         </div>
 
-        <!-- 主工作區：Table 選擇 + SQL 預覽 -->
-        <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height: 400px">
-          <TablePanel
-            :tables="tables"
-            :selected-table="selectedTable"
-            :selected-columns="selectedColumns"
-            @select-table="setSelectedTable"
-            @update-columns="setSelectedColumns"
-          />
-          <SqlPreview :sql="sqlOutput" />
-        </div>
+        <!-- SELECT / JOIN 查詢頁籤內容 -->
+        <div v-show="activeTab === 'query'">
+          <!-- JOIN 模式開關（選了 table 才顯示） -->
+          <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input type="checkbox" v-model="joinMode" class="accent-indigo-500" />
+              啟用 JOIN 多表查詢
+            </label>
+          </div>
 
-        <!-- 條件設定區（選了 table 才顯示） -->
-        <div v-if="selectedTable" class="grid grid-cols-2 gap-6">
-          <!-- JOIN 設定：跨越兩欄，只在 JOIN 模式下顯示 -->
-          <div v-if="joinMode && selectedTable" class="col-span-2">
-            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">JOIN 設定</div>
-            <JoinBuilder
+          <!-- 主工作區：Table 選擇 + SQL 預覽 -->
+          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height: 400px">
+            <TablePanel
               :tables="tables"
-              :base-table="selectedTable"
-              :joins="joins"
-              @update-joins="joins = $event"
+              :selected-table="selectedTable"
+              :selected-columns="selectedColumns"
+              @select-table="setSelectedTable"
+              @update-columns="setSelectedColumns"
+            />
+            <SqlPreview :sql="sqlOutput" />
+          </div>
+
+          <!-- 條件設定區（選了 table 才顯示） -->
+          <div v-if="selectedTable" class="grid grid-cols-2 gap-6 mt-6">
+            <!-- JOIN 設定：跨越兩欄，只在 JOIN 模式下顯示 -->
+            <div v-if="joinMode && selectedTable" class="col-span-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">JOIN 設定</div>
+              <JoinBuilder
+                :tables="tables"
+                :base-table="selectedTable"
+                :joins="joins"
+                @update-joins="joins = $event"
+              />
+            </div>
+            <ConditionBuilder
+              :columns="currentTableColumns"
+              :where="where"
+              @update-where="where = $event"
+            />
+            <SortLimitPanel
+              :columns="currentTableColumns"
+              :order-by="orderBy"
+              :limit="limit"
+              :offset="offset"
+              @update-order-by="orderBy = $event"
+              @update-limit="limit = $event"
+              @update-offset="offset = $event"
             />
           </div>
-          <ConditionBuilder
-            :columns="currentTableColumns"
-            :where="where"
-            @update-where="where = $event"
-          />
-          <SortLimitPanel
-            :columns="currentTableColumns"
-            :order-by="orderBy"
-            :limit="limit"
-            :offset="offset"
-            @update-order-by="orderBy = $event"
-            @update-limit="limit = $event"
-            @update-offset="offset = $event"
-          />
+        </div>
+
+        <!-- DML 模板頁籤內容 -->
+        <div v-show="activeTab === 'dml'" class="pt-4">
+          <DmlPanel :table="currentTable" />
         </div>
       </div>
     `
