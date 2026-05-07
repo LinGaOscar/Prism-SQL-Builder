@@ -1,6 +1,6 @@
 // app.js：Vue 3 主應用程式入口
 // 整合 DDL 解析、欄位選擇、WHERE 條件、ORDER BY 排序、LIMIT 分頁、JOIN 多表查詢、DML 模板、ERD 關聯圖與 SQL 即時產生
-// Phase 7 新增：localStorage 暫存、File System Access API 儲存、.md 格式序列化
+// Phase 7 新增：File System Access API 儲存、.md 格式序列化（不使用 localStorage 暫存業務資料）
 (function () {
   const { createApp, ref, computed, watch, onMounted } = Vue
 
@@ -38,11 +38,14 @@
 
       // Phase 7 新增：儲存相關狀態
       const fileHandle = ref(null)         // FSA handle，儲存後持有，避免重複選檔
-      const showMigratePrompt = ref(false) // 是否顯示 localStorage 遷移提示
       const saveStatus = ref('')           // 短暫顯示「已儲存」或「儲存失敗」
       const saveDir     = ref(null)        // FileSystemDirectoryHandle | null，指定預設儲存目錄
       const saveDirName = ref('')          // 顯示用的目錄名稱（handle.name）
       const schemaName  = ref('prism-schema') // 儲存的檔名（不含副檔名）
+
+      // 開始畫面：未主動進入 app 且尚無任何 DDL 時顯示
+      const started = ref(false)
+      const showStart = computed(() => !started.value && !rawDdl.value.trim())
 
       // Phase 8 新增：方言切換與多組儲存查詢
       const dialect = ref('mysql')         // 'mysql' | 'postgresql' | 'mssql' | 'oracle'
@@ -156,41 +159,15 @@
         }
       }
 
-      // 自動存入 localStorage（500ms debounce 避免過於頻繁寫入）
-      let lsTimer = null
-      watch([rawDdl, dialect, selectedTable, selectedColumns, where, orderBy, limit, offset, savedQueries], () => {
-        clearTimeout(lsTimer)
-        lsTimer = setTimeout(() => {
-          window.lsStorage.lsSave(getSerializableState())
-        }, 500)
-      }, { deep: true })
-
-      // 頁面載入時，嘗試從 localStorage 還原上次工作狀態，並套用儲存的主題
+      // 頁面載入時，套用儲存的主題偏好並嘗試從 IndexedDB 還原目錄 handle
       onMounted(async () => {
-        const savedTheme = localStorage.getItem('prism_theme') || 'dark'
+        // 還原主題偏好（主題偏好不屬於業務資料，允許用 localStorage 儲存）
+        const savedTheme = localStorage.getItem('prism_theme') || 'light'
         isDark.value = savedTheme === 'dark'
         if (isDark.value) document.documentElement.classList.add('dark')
         else document.documentElement.classList.remove('dark')
 
-        if (window.lsStorage.lsHasData()) {
-          const saved = window.lsStorage.lsLoad()
-          rawDdl.value = saved.rawDdl || ''
-          dialect.value = saved.dialect || 'mysql'
-          savedQueries.value = saved.savedQueries || []
-          if (saved.rawDdl) {
-            const result = window.parseDDL(saved.rawDdl)
-            tables.value = result
-            // 若有 savedQueries，自動載入第一組
-            if (savedQueries.value.length > 0) {
-              loadQuery(savedQueries.value[0])
-            } else {
-              selectedTable.value = result[0]?.tableName || ''
-            }
-          }
-          showMigratePrompt.value = true  // 提示使用者是否遷移至 .md 檔
-        }
-
-        // 嘗試從 IndexedDB 還原上次的儲存目錄
+        // 從 IndexedDB 還原上次的儲存目錄（讓「繼續使用上次目錄」按鈕可顯示目錄名稱）
         try {
           const handle = await window.idbHandles.loadDirHandle()
           if (handle) {
@@ -234,6 +211,7 @@
           saveDir.value = handle
           saveDirName.value = handle.name
           await window.idbHandles.saveDirHandle(handle)
+          started.value = true
         } catch (e) {
           if (e.name !== 'AbortError') alert('無法取得資料夾存取權限：' + e.message)
         }
@@ -266,6 +244,7 @@
               selectedTable.value = result[0]?.tableName || ''
             }
           }
+          started.value = true
         } catch (e) {
           if (e.name !== 'AbortError') alert('開啟失敗：' + e.message)
         }
@@ -298,18 +277,24 @@
         }
       }
 
-      // 遷移確認：儲存為 .md 後清除 localStorage
-      async function confirmMigrate() {
-        await saveToFile()
-        window.lsStorage.lsClear()
-        showMigratePrompt.value = false
+      // 「先試試看」：跳過開始畫面，不設定儲存位置直接進入 app
+      function skipStart() { started.value = true }
+
+      // 已有記憶目錄 → 驗證權限後直接進入 app（不需重新選擇）
+      async function startWithDir() {
+        try {
+          const perm = await window.fsStorage.verifyDirPermission(saveDir.value)
+          if (perm === 'granted') {
+            started.value = true
+          } else {
+            alert('需要重新授權目錄存取權限')
+          }
+        } catch (e) {
+          alert('目錄存取失敗：' + e.message)
+        }
       }
 
-      function dismissMigrate() {
-        showMigratePrompt.value = false
-      }
-
-      // 將目前查詢狀態存入 savedQueries 並立即寫入 localStorage
+      // 將目前查詢狀態存入 savedQueries
       function saveCurrentQuery() {
         const name = saveQueryName.value.trim() || `查詢 ${savedQueries.value.length + 1}`
         const query = {
@@ -325,7 +310,6 @@
         }
         savedQueries.value = [...savedQueries.value, query]
         saveQueryName.value = ''
-        window.lsStorage.lsSave(getSerializableState())
       }
 
       // 將指定查詢設定還原至目前工作區
@@ -352,34 +336,95 @@
         currentTableColumns, currentTable,
         joins, joinMode, joinColumns,
         activeTab,
-        fileHandle, showMigratePrompt, saveStatus,
+        fileHandle, saveStatus,
         saveDir, saveDirName, schemaName,
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
+        started, showStart,
         handleParse,
         setSelectedTable,
         goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols },
         saveToFile, openFromFile, exportFile, importFromInput,
-        confirmMigrate, dismissMigrate,
         saveCurrentQuery, loadQuery, deleteQuery,
         pickSaveDir, clearSaveDir,
+        skipStart, startWithDir,
         isDark, toggleTheme
       }
     },
     template: `
       <div class="min-h-screen bg-zinc-50 dark:bg-[#111111]">
-        <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-8">
 
-        <!-- localStorage 遷移提示 toast -->
-        <div v-if="showMigratePrompt"
-             class="fixed top-5 right-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 shadow-lg z-50 max-w-xs">
-          <p class="text-sm text-zinc-700 dark:text-zinc-300 mb-4 leading-relaxed">偵測到上次的工作狀態，已自動還原。<br>是否儲存為 .md 檔？</p>
-          <div class="flex gap-2">
-            <button @click="confirmMigrate" class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">儲存為 .md</button>
-            <button @click="dismissMigrate" class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">略過</button>
+        <!-- 開始畫面：尚未載入任何 Schema 時顯示，強制使用者明確選擇工作模式 -->
+        <div v-if="showStart"
+             class="fixed inset-0 bg-zinc-50 dark:bg-[#111111] flex items-center justify-center z-40">
+          <div class="w-full max-w-md px-6">
+            <!-- Logo -->
+            <div class="flex items-center gap-3 mb-10">
+              <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
+                <polygon points="14,2 26,24 2,24" fill="none" stroke="url(#pg2)" stroke-width="1.5"/>
+                <defs>
+                  <linearGradient id="pg2" x1="2" y1="24" x2="26" y2="2" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#6366f1"/>
+                    <stop offset="0.5" stop-color="#8b5cf6"/>
+                    <stop offset="1" stop-color="#ec4899"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div>
+                <h1 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Prism</h1>
+                <p class="text-xs text-zinc-400 tracking-wide">SQL Query Builder</p>
+              </div>
+            </div>
+
+            <!-- 選項卡片 -->
+            <div class="flex flex-col gap-3">
+              <!-- 開啟現有 Schema -->
+              <button @click="openFromFile"
+                      class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">開啟 Schema 檔案</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">載入現有的 .md 檔案</div>
+                  </div>
+                  <span class="text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-400 transition-colors text-lg">→</span>
+                </div>
+              </button>
+
+              <!-- 指定目錄新建（已有目錄時顯示目錄名稱） -->
+              <button @click="saveDirName ? startWithDir() : pickSaveDir()"
+                      class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ saveDirName ? '繼續使用上次目錄' : '選擇儲存位置' }}
+                    </div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      {{ saveDirName ? saveDirName : '指定資料夾，新建 Schema' }}
+                    </div>
+                  </div>
+                  <span class="text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-400 transition-colors text-lg">→</span>
+                </div>
+              </button>
+
+              <!-- 直接貼入 DDL（跳過存檔設定） -->
+              <button @click="skipStart"
+                      class="w-full text-center py-3 text-xs text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors">
+                先試試看，不儲存
+              </button>
+            </div>
+
+            <!-- 深淺色切換（開始畫面底部） -->
+            <div class="mt-10 flex justify-center">
+              <button @click="toggleTheme"
+                      class="text-xs text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors">
+                {{ isDark ? '切換淺色模式' : '切換深色模式' }}
+              </button>
+            </div>
           </div>
         </div>
+
+        <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-8">
 
         <!-- Header -->
         <header class="flex items-center justify-between pb-6 border-b border-zinc-200 dark:border-zinc-800">

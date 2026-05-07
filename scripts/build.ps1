@@ -30,7 +30,6 @@ $mermaidJs   = [System.IO.File]::ReadAllText($mermaidFile, [System.Text.Encoding
 # src/ 模組合併順序（依 index.html 的 script 載入順序）
 $srcFiles = @(
   'src/parser/ddl-parser.js',
-  'src/storage/local-storage.js',
   'src/storage/file-system.js',
   'src/storage/md-format.js',
   'src/builder/select-builder.js',
