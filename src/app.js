@@ -40,6 +40,9 @@
       const fileHandle = ref(null)         // FSA handle，儲存後持有，避免重複選檔
       const showMigratePrompt = ref(false) // 是否顯示 localStorage 遷移提示
       const saveStatus = ref('')           // 短暫顯示「已儲存」或「儲存失敗」
+      const saveDir     = ref(null)        // FileSystemDirectoryHandle | null，指定預設儲存目錄
+      const saveDirName = ref('')          // 顯示用的目錄名稱（handle.name）
+      const schemaName  = ref('prism-schema') // 儲存的檔名（不含副檔名）
 
       // Phase 8 新增：方言切換與多組儲存查詢
       const dialect = ref('mysql')         // 'mysql' | 'postgresql' | 'mssql' | 'oracle'
@@ -163,7 +166,7 @@
       }, { deep: true })
 
       // 頁面載入時，嘗試從 localStorage 還原上次工作狀態，並套用儲存的主題
-      onMounted(() => {
+      onMounted(async () => {
         const savedTheme = localStorage.getItem('prism_theme') || 'dark'
         isDark.value = savedTheme === 'dark'
         if (isDark.value) document.documentElement.classList.add('dark')
@@ -186,16 +189,35 @@
           }
           showMigratePrompt.value = true  // 提示使用者是否遷移至 .md 檔
         }
+
+        // 嘗試從 IndexedDB 還原上次的儲存目錄
+        try {
+          const handle = await window.idbHandles.loadDirHandle()
+          if (handle) {
+            saveDir.value = handle
+            saveDirName.value = handle.name
+          }
+        } catch (_) {}
       })
 
-      // 儲存至 .md 檔（已有 handle 直接寫入，否則開啟另存對話框）
+      // 儲存至 .md 檔；優先寫入指定目錄，其次使用既有 handle，最後開啟另存對話框
       async function saveToFile() {
-        const content = window.mdFormat.serialize(getSerializableState())
+        const content  = window.mdFormat.serialize(getSerializableState())
+        const filename = (schemaName.value.trim() || 'prism-schema') + '.md'
         try {
-          if (fileHandle.value) {
+          if (saveDir.value) {
+            // 目錄模式：直接寫入指定資料夾，避免每次跳出儲存對話框
+            const perm = await window.fsStorage.verifyDirPermission(saveDir.value)
+            if (perm !== 'granted') {
+              saveStatus.value = '需要資料夾存取權限'
+              setTimeout(() => { saveStatus.value = '' }, 3000)
+              return
+            }
+            await window.fsStorage.saveToDirectory(saveDir.value, filename, content)
+          } else if (fileHandle.value) {
             await window.fsStorage.saveFile(fileHandle.value, content)
           } else {
-            fileHandle.value = await window.fsStorage.saveAsFile(content)
+            fileHandle.value = await window.fsStorage.saveAsFile(content, filename)
           }
           saveStatus.value = '已儲存'
           setTimeout(() => { saveStatus.value = '' }, 2000)
@@ -203,6 +225,25 @@
           if (e.name !== 'AbortError') saveStatus.value = '儲存失敗'
           setTimeout(() => { saveStatus.value = '' }, 2000)
         }
+      }
+
+      /** 讓使用者選擇預設儲存目錄，並持久化到 IndexedDB */
+      async function pickSaveDir() {
+        try {
+          const handle = await window.fsStorage.pickSaveDirectory()
+          saveDir.value = handle
+          saveDirName.value = handle.name
+          await window.idbHandles.saveDirHandle(handle)
+        } catch (e) {
+          if (e.name !== 'AbortError') alert('無法取得資料夾存取權限：' + e.message)
+        }
+      }
+
+      /** 清除已設定的儲存位置 */
+      async function clearSaveDir() {
+        saveDir.value = null
+        saveDirName.value = ''
+        await window.idbHandles.clearDirHandle()
       }
 
       // 從 .md 檔開啟並還原狀態
@@ -312,6 +353,7 @@
         joins, joinMode, joinColumns,
         activeTab,
         fileHandle, showMigratePrompt, saveStatus,
+        saveDir, saveDirName, schemaName,
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
         handleParse,
@@ -321,6 +363,7 @@
         saveToFile, openFromFile, exportFile, importFromInput,
         confirmMigrate, dismissMigrate,
         saveCurrentQuery, loadQuery, deleteQuery,
+        pickSaveDir, clearSaveDir,
         isDark, toggleTheme
       }
     },
@@ -372,6 +415,28 @@
                     :title="isDark ? '切換淺色模式' : '切換深色模式'">
               {{ isDark ? '☀' : '🌙' }}
             </button>
+            <!-- 儲存位置設定：讓使用者指定預設資料夾，避免每次另存都要手動選路徑 -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-xs">
+              <span class="text-zinc-400 dark:text-zinc-500">儲存至</span>
+              <template v-if="saveDirName">
+                <span class="text-zinc-700 dark:text-zinc-300 font-medium max-w-[120px] truncate" :title="saveDirName">
+                  {{ saveDirName }}
+                </span>
+                <span class="text-zinc-300 dark:text-zinc-600">/</span>
+                <input v-model="schemaName"
+                       class="w-24 bg-transparent text-zinc-700 dark:text-zinc-300 outline-none border-b border-dashed border-zinc-300 dark:border-zinc-600 focus:border-indigo-400 transition-colors"
+                       placeholder="檔名" />
+                <span class="text-zinc-400 dark:text-zinc-500">.md</span>
+                <button @click="clearSaveDir"
+                        class="ml-1 text-zinc-300 dark:text-zinc-600 hover:text-red-500 transition-colors">✕</button>
+              </template>
+              <template v-else>
+                <button @click="pickSaveDir"
+                        class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition-colors font-medium">
+                  選擇資料夾
+                </button>
+              </template>
+            </div>
             <!-- FSA 支援時顯示開啟/儲存；不支援時顯示匯入/匯出 -->
             <template v-if="fsSupported">
               <button @click="openFromFile"

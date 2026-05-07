@@ -55,5 +55,38 @@
     URL.revokeObjectURL(url)
   }
 
-  window.fsStorage = { isSupported, openFile, saveFile, saveAsFile, downloadFile }
+  /**
+   * 開啟目錄選擇器，回傳 FileSystemDirectoryHandle。
+   * 業務背景：使用者指定預設儲存資料夾後，往後所有 schema 檔案
+   *           自動寫入該資料夾，不再每次跳出儲存對話框。
+   */
+  async function pickSaveDirectory() {
+    return await window.showDirectoryPicker({ mode: 'readwrite' })
+  }
+
+  /**
+   * 在指定目錄中寫入（或覆蓋）檔案。
+   * @param {FileSystemDirectoryHandle} dirHandle
+   * @param {string} filename
+   * @param {string} content
+   */
+  async function saveToDirectory(dirHandle, filename, content) {
+    const fileHandle = await dirHandle.getFileHandle(filename, { create: true })
+    const writable = await fileHandle.createWritable()
+    await writable.write(content)
+    await writable.close()
+  }
+
+  /**
+   * 驗證並（必要時）重新申請目錄寫入權限。
+   * 回傳 'granted' 表示有效，其餘值表示被拒或需要使用者操作。
+   * @param {FileSystemDirectoryHandle} dirHandle
+   */
+  async function verifyDirPermission(dirHandle) {
+    const opts = { mode: 'readwrite' }
+    if (await dirHandle.queryPermission(opts) === 'granted') return 'granted'
+    return await dirHandle.requestPermission(opts)
+  }
+
+  window.fsStorage = { isSupported, openFile, saveFile, saveAsFile, downloadFile, pickSaveDirectory, saveToDirectory, verifyDirPermission }
 })()
