@@ -41,7 +41,25 @@
    * @param {{ baseTable: string, joins: JoinDef[], columns: { table: string, column: string }[], where: any[], orderBy: any[], limit: number, offset: number }} params
    * @returns {string}
    */
-  function buildJoinSql({ baseTable, joins, columns, where, orderBy, limit, offset }) {
+  /**
+   * 依方言產生分頁子句（與 select-builder.js 邏輯一致）。
+   * 業務背景：JOIN 查詢同樣需要支援多方言分頁，集中在各 builder 內維護避免引入共用依賴。
+   */
+  function buildLimitClause(limit, offset, dialect) {
+    if (!limit || limit <= 0) return ''
+    switch (dialect) {
+      case 'mssql':
+        return `\nOFFSET ${offset || 0} ROWS FETCH NEXT ${limit} ROWS ONLY`
+      case 'oracle':
+        return `\nOFFSET ${offset || 0} ROWS FETCH FIRST ${limit} ROWS ONLY`
+      default:
+        let sql = `\nLIMIT ${limit}`
+        if (offset && offset > 0) sql += ` OFFSET ${offset}`
+        return sql
+    }
+  }
+
+  function buildJoinSql({ baseTable, joins, columns, where, orderBy, limit, offset, dialect }) {
     // 統計所有欄位出現次數，重名欄位需加 table 前綴才能區分來源
     const colCount = {}
     columns.forEach(c => { colCount[c.column] = (colCount[c.column] || 0) + 1 })
@@ -74,11 +92,9 @@
       sql += `\nORDER BY ${orderBy.map(o => `${o.column} ${o.direction}`).join(', ')}`
     }
 
-    // LIMIT / OFFSET：OFFSET 只在有 LIMIT 時才有意義
-    if (limit && limit > 0) {
-      sql += `\nLIMIT ${limit}`
-      if (offset && offset > 0) sql += ` OFFSET ${offset}`
-    }
+    // 依方言輸出分頁子句
+    const limitClause = buildLimitClause(limit, offset, dialect || 'mysql')
+    if (limitClause) sql += limitClause
 
     return sql
   }

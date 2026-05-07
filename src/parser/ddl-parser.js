@@ -37,7 +37,12 @@
     let name = '';
     let rest = str;
 
-    if (str[0] === '`') {
+    if (str[0] === '[') {
+      // MSSQL 方括號識別符，例如 [table_name] 或 [column_name]
+      const end = str.indexOf(']', 1);
+      name = str.slice(1, end);
+      rest = str.slice(end + 1);
+    } else if (str[0] === '`') {
       // MySQL 反引號識別符
       const end = str.indexOf('`', 1);
       name = str.slice(1, end);
@@ -226,7 +231,7 @@
 
     // 尋找所有 CREATE TABLE [IF NOT EXISTS] name (...)
     // 識別符支援反引號、雙引號、無引號
-    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"]?[\w]+[`"]?)/gi;
+    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\[]?[\w]+[`"\]]?)/gi;
     let match;
 
     while ((match = createTableRe.exec(sql)) !== null) {

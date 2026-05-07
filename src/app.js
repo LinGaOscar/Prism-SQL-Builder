@@ -41,6 +41,11 @@
       const showMigratePrompt = ref(false) // 是否顯示 localStorage 遷移提示
       const saveStatus = ref('')           // 短暫顯示「已儲存」或「儲存失敗」
 
+      // Phase 8 新增：方言切換與多組儲存查詢
+      const dialect = ref('mysql')         // 'mysql' | 'postgresql' | 'mssql' | 'oracle'
+      const savedQueries = ref([])         // [{ name, selectedTable, selectedColumns, where, orderBy, limit, offset, joins, joinMode }]
+      const saveQueryName = ref('')        // 儲存查詢時的名稱輸入框
+
       // 深色/淺色模式切換
       const isDark = ref(true)
       function toggleTheme() {
@@ -117,7 +122,8 @@
             where: where.value,
             orderBy: orderBy.value,
             limit: limit.value,
-            offset: offset.value
+            offset: offset.value,
+            dialect: dialect.value
           })
         }
         // 單表模式：使用原有 buildSelect
@@ -127,7 +133,8 @@
           where: where.value,
           orderBy: orderBy.value,
           limit: limit.value,
-          offset: offset.value
+          offset: offset.value,
+          dialect: dialect.value
         })
       })
 
@@ -141,18 +148,14 @@
       function getSerializableState() {
         return {
           rawDdl: rawDdl.value,
-          selectedTable: selectedTable.value,
-          selectedColumns: selectedColumns.value,
-          where: where.value,
-          orderBy: orderBy.value,
-          limit: limit.value,
-          offset: offset.value
+          dialect: dialect.value,
+          savedQueries: savedQueries.value
         }
       }
 
       // 自動存入 localStorage（500ms debounce 避免過於頻繁寫入）
       let lsTimer = null
-      watch([rawDdl, selectedTable, selectedColumns, where, orderBy, limit, offset], () => {
+      watch([rawDdl, dialect, selectedTable, selectedColumns, where, orderBy, limit, offset, savedQueries], () => {
         clearTimeout(lsTimer)
         lsTimer = setTimeout(() => {
           window.lsStorage.lsSave(getSerializableState())
@@ -169,15 +172,17 @@
         if (window.lsStorage.lsHasData()) {
           const saved = window.lsStorage.lsLoad()
           rawDdl.value = saved.rawDdl || ''
+          dialect.value = saved.dialect || 'mysql'
+          savedQueries.value = saved.savedQueries || []
           if (saved.rawDdl) {
             const result = window.parseDDL(saved.rawDdl)
             tables.value = result
-            selectedTable.value = saved.selectedTable || (result[0]?.tableName || '')
-            selectedColumns.value = saved.selectedColumns || []
-            where.value = saved.where || []
-            orderBy.value = saved.orderBy || []
-            limit.value = saved.limit || 0
-            offset.value = saved.offset || 0
+            // 若有 savedQueries，自動載入第一組
+            if (savedQueries.value.length > 0) {
+              loadQuery(savedQueries.value[0])
+            } else {
+              selectedTable.value = result[0]?.tableName || ''
+            }
           }
           showMigratePrompt.value = true  // 提示使用者是否遷移至 .md 檔
         }
@@ -208,15 +213,17 @@
           if (!state) { alert('檔案格式不正確'); return }
           fileHandle.value = handle
           rawDdl.value = state.rawDdl || ''
+          dialect.value = state.dialect || 'mysql'
+          savedQueries.value = state.savedQueries || []
           if (state.rawDdl) {
             const result = window.parseDDL(state.rawDdl)
             tables.value = result
-            selectedTable.value = state.selectedTable || ''
-            selectedColumns.value = state.selectedColumns || []
-            where.value = state.where || []
-            orderBy.value = state.orderBy || []
-            limit.value = state.limit || 0
-            offset.value = state.offset || 0
+            // 若有 savedQueries，自動載入第一組
+            if (savedQueries.value.length > 0) {
+              loadQuery(savedQueries.value[0])
+            } else {
+              selectedTable.value = result[0]?.tableName || ''
+            }
           }
         } catch (e) {
           if (e.name !== 'AbortError') alert('開啟失敗：' + e.message)
@@ -237,15 +244,16 @@
         const state = window.mdFormat.deserialize(text)
         if (!state) { alert('檔案格式不正確'); return }
         rawDdl.value = state.rawDdl || ''
+        dialect.value = state.dialect || 'mysql'
+        savedQueries.value = state.savedQueries || []
         if (state.rawDdl) {
           const result = window.parseDDL(state.rawDdl)
           tables.value = result
-          selectedTable.value = state.selectedTable || ''
-          selectedColumns.value = state.selectedColumns || []
-          where.value = state.where || []
-          orderBy.value = state.orderBy || []
-          limit.value = state.limit || 0
-          offset.value = state.offset || 0
+          if (savedQueries.value.length > 0) {
+            loadQuery(savedQueries.value[0])
+          } else {
+            selectedTable.value = result[0]?.tableName || ''
+          }
         }
       }
 
@@ -260,6 +268,42 @@
         showMigratePrompt.value = false
       }
 
+      // 將目前查詢狀態存入 savedQueries 並立即寫入 localStorage
+      function saveCurrentQuery() {
+        const name = saveQueryName.value.trim() || `查詢 ${savedQueries.value.length + 1}`
+        const query = {
+          name,
+          selectedTable: selectedTable.value,
+          selectedColumns: [...selectedColumns.value],
+          where: [...where.value],
+          orderBy: [...orderBy.value],
+          limit: limit.value,
+          offset: offset.value,
+          joins: [...joins.value],
+          joinMode: joinMode.value
+        }
+        savedQueries.value = [...savedQueries.value, query]
+        saveQueryName.value = ''
+        window.lsStorage.lsSave(getSerializableState())
+      }
+
+      // 將指定查詢設定還原至目前工作區
+      function loadQuery(q) {
+        selectedTable.value = q.selectedTable || ''
+        selectedColumns.value = q.selectedColumns || []
+        where.value = q.where || []
+        orderBy.value = q.orderBy || []
+        limit.value = q.limit || 0
+        offset.value = q.offset || 0
+        joins.value = q.joins || []
+        joinMode.value = q.joinMode || false
+      }
+
+      // 從 savedQueries 刪除指定索引的查詢
+      function deleteQuery(idx) {
+        savedQueries.value = savedQueries.value.filter((_, i) => i !== idx)
+      }
+
       return {
         rawDdl, tables, selectedTable, selectedColumns,
         parseError, sqlOutput,
@@ -269,12 +313,14 @@
         activeTab,
         fileHandle, showMigratePrompt, saveStatus,
         fsSupported: window.fsStorage.isSupported,
+        dialect, savedQueries, saveQueryName,
         handleParse,
         setSelectedTable,
         goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols },
         saveToFile, openFromFile, exportFile, importFromInput,
         confirmMigrate, dismissMigrate,
+        saveCurrentQuery, loadQuery, deleteQuery,
         isDark, toggleTheme
       }
     },
@@ -297,6 +343,14 @@
             <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">貼入 DDL，視覺化產生 SQL 查詢</p>
           </div>
           <div class="flex items-center gap-2">
+            <!-- 方言選擇器：影響分頁語法（LIMIT vs OFFSET...FETCH） -->
+            <select v-model="dialect"
+                    class="text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mssql">MSSQL</option>
+              <option value="oracle">Oracle</option>
+            </select>
             <!-- 深色/淺色模式切換按鈕 -->
             <button @click="toggleTheme"
                     class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -355,6 +409,31 @@
 
         <!-- SELECT / JOIN 查詢頁籤內容 -->
         <div v-show="activeTab === 'query'">
+          <!-- 儲存目前查詢 -->
+          <div v-if="selectedTable" class="flex items-center gap-2 mb-3">
+            <input v-model="saveQueryName"
+                   placeholder="查詢名稱（選填）"
+                   class="flex-1 text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200" />
+            <button @click="saveCurrentQuery"
+                    class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">
+              儲存查詢
+            </button>
+          </div>
+
+          <!-- 已儲存查詢列表 -->
+          <div v-if="savedQueries.length > 0" class="mb-4">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">已儲存查詢</div>
+            <div class="flex flex-wrap gap-2">
+              <div v-for="(q, idx) in savedQueries" :key="idx"
+                   class="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <button @click="loadQuery(q)"
+                        class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{{ q.name }}</button>
+                <button @click="deleteQuery(idx)"
+                        class="text-gray-400 hover:text-red-500 text-xs px-1">✕</button>
+              </div>
+            </div>
+          </div>
+
           <!-- JOIN 模式開關（選了 table 才顯示） -->
           <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
