@@ -15,14 +15,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 無需 build 流程。直接用瀏覽器開啟 HTML 檔案即可運行：
 
 ```
-# 本地開發
 start index.html          # Windows
 open index.html           # macOS
-
 # 或用 VS Code Live Server 取得 HMR 效果
 ```
 
-測試 DDL Parser 邏輯時，可在瀏覽器 console 直接呼叫模組函式。
+### Tailwind CSS（CLI 模式）
+
+開發期間用 CLI 掃描 HTML 產生靜態 CSS，不引入 runtime JS：
+
+```bash
+npm install -D tailwindcss
+npx tailwindcss -i ./input.css -o ./tailwind.css --minify
+```
+
+### 目錄結構（開發階段）
+
+```
+src/
+  parser/       # DDL Parser（純函式，可獨立測試）
+  builder/      # SQL Builder（SELECT / JOIN / DML）
+  storage/      # File System API + localStorage
+  components/   # Vue 元件（TablePanel, QueryBuilder, SqlPreview...）
+  app.js        # Vue app 入口
+```
+
+發布時由腳本將所有模組合併並 inline 進 `prism.html`。
+
+### DDL Parser 測試
+
+維護 `src/parser/testcases.js`，涵蓋以下情境：
+
+| 測試類型 | 範例 |
+|----------|------|
+| 複合主鍵 | `PRIMARY KEY (col1, col2)` |
+| FK 定義 | `FOREIGN KEY (uid) REFERENCES users(id)` |
+| 帶括號預設值 | `DEFAULT (CURRENT_TIMESTAMP)` |
+| 引號識別符 | `` `table_name` ``、`"column"` |
+| MySQL vs PostgreSQL | `AUTO_INCREMENT` vs `SERIAL` |
+| 行內 vs 表級約束混用 | — |
+
+在 HTML 中加入隱藏的「Parser Debug 面板」（開發模式可見），可直接輸入 DDL 並查看解析結果 JSON。
 
 ## 技術棧
 
@@ -58,33 +91,32 @@ SQL Output
 
 ### 儲存策略
 
-- 主要：File System Access API（讀寫本機 `.md` 格式檔案）
-- Fallback：手動匯入/匯出（`<input type="file">` + `Blob` 下載）
+- **MVP（Phase 1–6）**：localStorage 暫存 DDL 與查詢設定
+- **Phase 7**：啟用 File System Access API；首次開啟自動偵測 localStorage 資料並提示匯出為 `.md`，完成一次性遷移
+- **Fallback（Firefox）**：手動匯入/匯出（`<input type="file">` + `Blob` 下載）
 
 ## 建置順序（8 階段）
 
-| 階段 | 項目 |
-|------|------|
-| 1 | DDL Parser 核心（Table / Column / FK 解析） |
-| 2 | SELECT UI + 即時 SQL 預覽 |
-| 3 | WHERE / ORDER BY / LIMIT 條件設定 |
-| 4 | JOIN 多表查詢（FK 推薦 + Alias 處理） |
-| 5 | DML 模板（INSERT / UPDATE / DELETE） |
-| 6 | ERD 關聯圖（Mermaid.js 互動節點） |
-| 7 | 資料儲存（File System Access API + 降級匯出入） |
-| 8 | 離線打包與跨瀏覽器驗證 |
+| 階段 | 項目 | 交付內容 |
+|------|------|---------|
+| 1 | DDL Parser 核心 | Table / Column 資料結構、FK 解析 |
+| 2 | SELECT UI + 即時 SQL 預覽 | 欄位勾選介面、SQL 預覽區 |
+| 3 | WHERE / ORDER BY / LIMIT | 條件設定 UI、完整 SELECT 產生 |
+| 4 | JOIN 多表查詢 | FK 推薦、JOIN 設定、Alias 處理 |
+| 5 | DML 模板 | INSERT / UPDATE / DELETE 產生器 |
+| 6 | ERD 關聯圖 | Mermaid 繪圖、節點互動 |
+| 7 | 資料儲存 | File System Access API、降級匯出入、localStorage 遷移 |
+| 8 | 離線打包與驗證 | 單檔 inline、跨瀏覽器測試 |
 
-## 離線打包
-
-發布時將所有 CDN 函式庫下載後 inline 進 HTML：
+## 離線打包（Phase 8）
 
 ```bash
 curl -o vue.global.js https://unpkg.com/vue@3/dist/vue.global.prod.js
-curl -o tailwind.js https://cdn.tailwindcss.com
 curl -o mermaid.min.js https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js
+# Tailwind 已由 CLI 產生 tailwind.css，直接 inline
 ```
 
-將下載內容分別貼入對應 `<script>` 標籤。inline 後體積約 1–2 MB，Mermaid 建議延遲載入以加快初始開啟速度。
+將各檔案內容 inline 進對應 `<script>`/`<style>` 標籤。inline 後體積約 1–2 MB；Mermaid 建議延遲載入以加快初始開啟速度。
 
 ## 儲存格式
 
