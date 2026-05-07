@@ -1,3 +1,5 @@
 node_modules/
 *.exe
 tailwind.css
+vendor/
+prism.html

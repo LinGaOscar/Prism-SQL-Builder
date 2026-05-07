@@ -114,13 +114,20 @@ SQL Output
 
 ## 離線打包（Phase 8）
 
-```bash
-curl -o vue.global.js https://unpkg.com/vue@3/dist/vue.global.prod.js
-curl -o mermaid.min.js https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js
-# Tailwind 已由 CLI 產生 tailwind.css，直接 inline
+執行 PowerShell 打包腳本，自動下載函式庫並產生單一 `prism.html`：
+
+```powershell
+# 先確保 tailwind.css 已生成
+./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
+
+# 執行打包
+pwsh ./scripts/build.ps1
 ```
 
-將各檔案內容 inline 進對應 `<script>`/`<style>` 標籤。inline 後體積約 1–2 MB；Mermaid 建議延遲載入以加快初始開啟速度。
+腳本會自動下載 Vue 3 和 Mermaid.js 至 `vendor/`（已加入 `.gitignore`），
+然後將 tailwind.css + vendor JS + src/ 所有模組合併 inline 進 `prism.html`。
+
+`vendor/` 和 `prism.html` 均為本地生成物，不 commit。
 
 ## 儲存格式
 
