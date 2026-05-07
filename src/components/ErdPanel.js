@@ -70,11 +70,11 @@ window.ErdPanelComponent = {
   },
   template: `
     <div class="flex flex-col gap-2">
-      <div class="text-xs text-gray-500">點擊資料表節點可切換至對應查詢設定</div>
-      <div v-if="errMsg" class="text-red-400 text-sm">{{ errMsg }}</div>
+      <div class="text-xs text-gray-400 dark:text-gray-500">點擊資料表節點可切換至對應查詢設定</div>
+      <div v-if="errMsg" class="text-red-600 dark:text-red-400 text-sm">{{ errMsg }}</div>
       <div ref="svgContainer"
-           class="bg-gray-900 rounded p-4 min-h-48 overflow-auto flex items-start justify-center">
-        <p class="text-gray-600 text-sm self-center">尚未解析 DDL</p>
+           class="bg-gray-50 dark:bg-gray-900 rounded p-4 min-h-48 overflow-auto flex items-start justify-center">
+        <p class="text-gray-400 dark:text-gray-600 text-sm self-center">尚未解析 DDL</p>
       </div>
     </div>
   `

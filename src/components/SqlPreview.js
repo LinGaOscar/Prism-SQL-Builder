@@ -19,14 +19,14 @@ window.SqlPreviewComponent = {
   template: `
     <div class="flex flex-col h-full">
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400">SQL 預覽</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">SQL 預覽</h3>
         <button @click="copySql"
                 :disabled="!sql"
                 class="text-xs px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
           {{ copyLabel }}
         </button>
       </div>
-      <pre class="flex-1 bg-gray-900 rounded p-4 text-sm text-green-400 font-mono overflow-auto whitespace-pre-wrap">{{ sql || '-- 請選擇資料表與欄位' }}</pre>
+      <pre class="flex-1 bg-gray-50 dark:bg-gray-900 rounded p-4 text-sm text-green-700 dark:text-green-400 font-mono overflow-auto whitespace-pre-wrap">{{ sql || '-- 請選擇資料表與欄位' }}</pre>
     </div>
   `
 }

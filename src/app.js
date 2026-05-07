@@ -4,6 +4,7 @@
 (function () {
   const { createApp, ref, computed, watch, onMounted } = Vue
 
+
   const app = createApp({
     components: {
       TablePanel: window.TablePanelComponent,
@@ -39,6 +40,19 @@
       const fileHandle = ref(null)         // FSA handle，儲存後持有，避免重複選檔
       const showMigratePrompt = ref(false) // 是否顯示 localStorage 遷移提示
       const saveStatus = ref('')           // 短暫顯示「已儲存」或「儲存失敗」
+
+      // 深色/淺色模式切換
+      const isDark = ref(true)
+      function toggleTheme() {
+        isDark.value = !isDark.value
+        if (isDark.value) {
+          document.documentElement.classList.add('dark')
+          localStorage.setItem('prism_theme', 'dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+          localStorage.setItem('prism_theme', 'light')
+        }
+      }
 
       // 解析 DDL
       function handleParse() {
@@ -145,8 +159,13 @@
         }, 500)
       }, { deep: true })
 
-      // 頁面載入時，嘗試從 localStorage 還原上次工作狀態
+      // 頁面載入時，嘗試從 localStorage 還原上次工作狀態，並套用儲存的主題
       onMounted(() => {
+        const savedTheme = localStorage.getItem('prism_theme') || 'dark'
+        isDark.value = savedTheme === 'dark'
+        if (isDark.value) document.documentElement.classList.add('dark')
+        else document.documentElement.classList.remove('dark')
+
         if (window.lsStorage.lsHasData()) {
           const saved = window.lsStorage.lsLoad()
           rawDdl.value = saved.rawDdl || ''
@@ -255,73 +274,80 @@
         goToTable,
         setSelectedColumns(cols) { selectedColumns.value = cols },
         saveToFile, openFromFile, exportFile, importFromInput,
-        confirmMigrate, dismissMigrate
+        confirmMigrate, dismissMigrate,
+        isDark, toggleTheme
       }
     },
     template: `
       <div class="max-w-6xl mx-auto p-6 flex flex-col gap-6">
         <!-- localStorage 遷移提示 toast -->
         <div v-if="showMigratePrompt"
-             class="fixed top-4 right-4 bg-gray-800 border border-indigo-500 rounded-lg p-4 shadow-xl z-50 max-w-sm">
-          <p class="text-sm text-gray-200 mb-3">偵測到上次的工作狀態，已自動還原。<br>是否儲存為 .md 檔以便下次直接開啟？</p>
+             class="fixed top-4 right-4 bg-gray-100 dark:bg-gray-800 border border-indigo-500 rounded-lg p-4 shadow-xl z-50 max-w-sm">
+          <p class="text-sm text-gray-800 dark:text-gray-200 mb-3">偵測到上次的工作狀態，已自動還原。<br>是否儲存為 .md 檔以便下次直接開啟？</p>
           <div class="flex gap-2">
             <button @click="confirmMigrate" class="text-sm px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white">儲存為 .md</button>
-            <button @click="dismissMigrate" class="text-sm px-3 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200">略過</button>
+            <button @click="dismissMigrate" class="text-sm px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">略過</button>
           </div>
         </div>
 
         <!-- Header -->
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-2xl font-bold text-white">Prism SQL Builder</h1>
-            <p class="text-gray-400 text-sm mt-1">貼入 DDL，視覺化產生 SQL 查詢</p>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Prism SQL Builder</h1>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">貼入 DDL，視覺化產生 SQL 查詢</p>
           </div>
           <div class="flex items-center gap-2">
+            <!-- 深色/淺色模式切換按鈕 -->
+            <button @click="toggleTheme"
+                    class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    :title="isDark ? '切換淺色模式' : '切換深色模式'">
+              {{ isDark ? '☀' : '🌙' }}
+            </button>
             <!-- FSA 支援時顯示開啟/儲存；不支援時顯示匯入/匯出 -->
             <template v-if="fsSupported">
-              <button @click="openFromFile" class="text-sm px-3 py-1.5 rounded border border-gray-600 hover:border-gray-400 text-gray-300">開啟</button>
+              <button @click="openFromFile" class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:border-gray-400 text-gray-700 dark:text-gray-300">開啟</button>
               <button @click="saveToFile" class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">
                 {{ fileHandle ? '儲存' : '另存新檔' }}
               </button>
             </template>
             <template v-else>
-              <label class="text-sm px-3 py-1.5 rounded border border-gray-600 hover:border-gray-400 text-gray-300 cursor-pointer">
+              <label class="text-sm px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:border-gray-400 text-gray-700 dark:text-gray-300 cursor-pointer">
                 匯入
                 <input type="file" accept=".md,.txt" class="hidden" @change="importFromInput" />
               </label>
               <button @click="exportFile" class="text-sm px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white">匯出</button>
             </template>
-            <span v-if="saveStatus" class="text-xs text-green-400">{{ saveStatus }}</span>
+            <span v-if="saveStatus" class="text-xs text-green-700 dark:text-green-400">{{ saveStatus }}</span>
           </div>
         </div>
 
         <!-- DDL 輸入區 -->
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">DDL 輸入</label>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">DDL 輸入</label>
           <textarea
             v-model="rawDdl"
             rows="6"
             placeholder="貼入 CREATE TABLE ... 語法"
-            class="w-full bg-gray-800 text-gray-100 rounded p-3 text-sm font-mono border border-gray-700 focus:outline-none focus:border-indigo-500 resize-y">
+            class="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded p-3 text-sm font-mono border border-gray-300 dark:border-gray-700 focus:outline-none focus:border-indigo-500 resize-y">
           </textarea>
           <div class="flex items-center gap-3 mt-2">
             <button @click="handleParse"
                     class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded font-medium transition-colors">
               解析 DDL
             </button>
-            <span v-if="parseError" class="text-red-400 text-sm">{{ parseError }}</span>
+            <span v-if="parseError" class="text-red-600 dark:text-red-400 text-sm">{{ parseError }}</span>
           </div>
         </div>
 
         <!-- Tab 切換列（選了 table 才顯示） -->
-        <div v-if="tables.length > 0" class="flex border-b border-gray-700 gap-1">
+        <div v-if="tables.length > 0" class="flex border-b border-gray-300 dark:border-gray-700 gap-1">
           <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML 模板'],['erd','ERD 關聯圖']]" :key="tab[0]"
                   @click="activeTab = tab[0]"
                   :class="[
                     'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
                     activeTab === tab[0]
                       ? 'border-indigo-500 text-indigo-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   ]">
             {{ tab[1] }}
           </button>
@@ -331,7 +357,7 @@
         <div v-show="activeTab === 'query'">
           <!-- JOIN 模式開關（選了 table 才顯示） -->
           <div class="flex items-center gap-3 mb-3" v-if="selectedTable">
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
               <input type="checkbox" v-model="joinMode" class="accent-indigo-500" />
               啟用 JOIN 多表查詢
             </label>

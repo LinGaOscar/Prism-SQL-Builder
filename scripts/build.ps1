@@ -52,17 +52,31 @@ $appJs = ($srcFiles | ForEach-Object {
 }) -join "`n`n"
 
 # ── 3. 產生 prism.html ──────────────────────────────────────
+$browserCheck = @'
+  <script>
+    (function () {
+      var ua = navigator.userAgent;
+      var isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua) && !/OPR\//.test(ua);
+      var isEdge   = /Edg\//.test(ua);
+      if (!isChrome && !isEdge) {
+        alert('Prism SQL Builder 僅支援 Chrome 或 Edge 瀏覽器。\n請改用 Chrome / Edge 開啟。');
+        window.close();
+      }
+    })();
+  </script>
+'@
+
 $html = @"
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Prism SQL Builder</title>
   <style>/* === Tailwind CSS === */
 $tailwindCss</style>
-</head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+$browserCheck</head>
+<body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
   <div id="app"></div>
 
   <script>/* === Vue 3 === */

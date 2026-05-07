@@ -44,8 +44,8 @@ window.TablePanelComponent = {
     <div class="flex gap-4 h-full">
       <!-- 左側：Table 列表 -->
       <div class="w-48 shrink-0">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">資料表</h3>
-        <div v-if="tables.length === 0" class="text-gray-500 text-sm">尚未解析 DDL</div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">資料表</h3>
+        <div v-if="tables.length === 0" class="text-gray-400 dark:text-gray-500 text-sm">尚未解析 DDL</div>
         <ul>
           <li v-for="t in tables" :key="t.tableName"
               @click="selectTable(t.tableName)"
@@ -53,7 +53,7 @@ window.TablePanelComponent = {
                 'px-3 py-2 rounded cursor-pointer text-sm mb-1',
                 selectedTable === t.tableName
                   ? 'bg-indigo-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-700'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               ]">
             {{ t.tableName }}
           </li>
@@ -61,12 +61,12 @@ window.TablePanelComponent = {
       </div>
       <!-- 右側：欄位列表 -->
       <div class="flex-1 min-w-0">
-        <div v-if="!currentTable" class="text-gray-500 text-sm">請選擇資料表</div>
+        <div v-if="!currentTable" class="text-gray-400 dark:text-gray-500 text-sm">請選擇資料表</div>
         <div v-else>
           <div class="flex items-center gap-2 mb-2">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex-1">欄位</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex-1">欄位</h3>
             <button @click="selectAll" class="text-xs text-indigo-400 hover:text-indigo-300">全選</button>
-            <button @click="clearAll" class="text-xs text-gray-400 hover:text-gray-300">清除</button>
+            <button @click="clearAll" class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">清除</button>
           </div>
           <ul>
             <li v-for="col in currentTable.columns" :key="col.name"
@@ -77,9 +77,9 @@ window.TablePanelComponent = {
                      :checked="selectedColumns.includes(col.name)"
                      @change="toggleColumn(col.name)"
                      class="accent-indigo-500 cursor-pointer" />
-              <label :for="'col-' + col.name" class="text-sm text-gray-200 cursor-pointer flex-1">
+              <label :for="'col-' + col.name" class="text-sm text-gray-800 dark:text-gray-200 cursor-pointer flex-1">
                 {{ col.name }}
-                <span class="text-gray-500 text-xs ml-1">{{ col.type }}</span>
+                <span class="text-gray-400 dark:text-gray-500 text-xs ml-1">{{ col.type }}</span>
               </label>
               <span v-if="col.isPrimaryKey" class="text-xs text-yellow-500">PK</span>
             </li>

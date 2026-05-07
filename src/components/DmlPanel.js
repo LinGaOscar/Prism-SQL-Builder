@@ -35,19 +35,19 @@ window.DmlPanelComponent = {
     <div class="flex flex-col gap-4">
       <!-- DML 模式切換 + 佔位符風格 -->
       <div class="flex items-center gap-4 flex-wrap">
-        <div class="flex rounded overflow-hidden border border-gray-700">
+        <div class="flex rounded overflow-hidden border border-gray-300 dark:border-gray-700">
           <button v-for="m in ['INSERT','UPDATE','DELETE']" :key="m"
                   @click="dmlMode = m"
                   :class="[
                     'px-4 py-1.5 text-sm font-medium',
                     dmlMode === m
                       ? (m === 'DELETE' ? 'bg-red-700 text-white' : 'bg-indigo-600 text-white')
-                      : 'text-gray-400 hover:bg-gray-700'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                   ]">
             {{ m }}
           </button>
         </div>
-        <div class="flex items-center gap-2 text-sm text-gray-400">
+        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <span>佔位符：</span>
           <label class="flex items-center gap-1 cursor-pointer">
             <input type="radio" v-model="placeholderStyle" value="named" class="accent-indigo-500" /> :name
@@ -61,15 +61,15 @@ window.DmlPanelComponent = {
       <!-- SQL 輸出 -->
       <div class="flex flex-col">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">{{ dmlMode }} 模板</span>
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ dmlMode }} 模板</span>
           <button @click="copySql" :disabled="!sql"
                   class="text-xs px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {{ copyLabel }}
           </button>
         </div>
         <pre :class="[
-          'bg-gray-900 rounded p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
-          dmlMode === 'DELETE' ? 'text-red-400' : 'text-green-400'
+          'bg-gray-50 dark:bg-gray-900 rounded p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+          dmlMode === 'DELETE' ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'
         ]">{{ sql || '-- 請先選擇資料表' }}</pre>
       </div>
     </div>
