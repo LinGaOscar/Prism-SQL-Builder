@@ -7,133 +7,128 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Prism** 是一個離線 SQL Query Builder，核心設計原則：
 
 - 單一自含 HTML 檔案，零安裝、零依賴
-- 使用者貼入 DDL → 視覺化選欄 → 自動產生 SQL
+- 匯入 `.sql` DDL 檔 → 視覺化選欄 → 自動產生 SQL
 - 所有運算在瀏覽器本地執行，資料不離開本機
+- **僅支援 Chrome / Edge**（依賴 File System Access API）
 
 ## 開發環境
 
-無需 build 流程。直接用瀏覽器開啟 HTML 檔案即可運行：
+開發時開啟 `index.html`（需 HTTP 伺服器以啟用 FSA 安全上下文）：
 
 ```
-start index.html          # Windows
-open index.html           # macOS
-# 或用 VS Code Live Server 取得 HMR 效果
+# VS Code Live Server（推薦，支援 HMR）
+# 或 PowerShell 快速啟動
+npx serve .
 ```
 
 ### Tailwind CSS（獨立執行檔）
 
-不需要 Node.js 或 npm。使用官方獨立執行檔，一次下載即可重複使用：
-
-```bash
-# 首次：下載獨立執行檔（存放於專案根目錄，已加入 .gitignore）
-curl -LO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
-Rename-Item tailwindcss-windows-x64.exe tailwindcss.exe   # PowerShell
-
-# 每次新增 Tailwind class 後重新產生（開發期間可加 --watch）
-./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
-```
-
-### 目錄結構（開發階段）
-
-```
-src/
-  parser/       # DDL Parser（純函式，可獨立測試）
-  builder/      # SQL Builder（SELECT / JOIN / DML）
-  storage/      # File System API + localStorage
-  components/   # Vue 元件（TablePanel, QueryBuilder, SqlPreview...）
-  app.js        # Vue app 入口
-```
-
-發布時由腳本將所有模組合併並 inline 進 `prism.html`。
-
-### DDL Parser 測試
-
-維護 `src/parser/testcases.js`，涵蓋以下情境：
-
-| 測試類型 | 範例 |
-|----------|------|
-| 複合主鍵 | `PRIMARY KEY (col1, col2)` |
-| FK 定義 | `FOREIGN KEY (uid) REFERENCES users(id)` |
-| 帶括號預設值 | `DEFAULT (CURRENT_TIMESTAMP)` |
-| 引號識別符 | `` `table_name` ``、`"column"` |
-| MySQL vs PostgreSQL | `AUTO_INCREMENT` vs `SERIAL` |
-| 行內 vs 表級約束混用 | — |
-
-在 HTML 中加入隱藏的「Parser Debug 面板」（開發模式可見），可直接輸入 DDL 並查看解析結果 JSON。
-
-## 技術棧
-
-| 用途 | 技術 | 載入方式 |
-|------|------|----------|
-| 響應式 UI | Vue 3 | CDN → 發布時 inline |
-| 樣式 | Tailwind CSS | 獨立執行檔產生靜態 CSS → 發布時 inline |
-| ERD 圖表 | Mermaid.js | CDN → 發布時 inline |
-| DDL 解析 | 自製 Parser | 內嵌 JS |
-
-> **發布原則**：將所有 CDN 函式庫 inline 進單一 HTML，確保完全離線可用。
-
-## 架構設計
-
-### 核心模組分層
-
-```
-DDL Parser (Regex + State Machine)
-    ↓ 解析結果: TableSchema[]
-Vue 3 App (reactive state)
-    ↓ 使用者操作
-SQL Builder (pure functions)
-    ↓ 產出
-SQL Output
-```
-
-### DDL Parser 設計
-
-- 以 Regex + 狀態機解析 `CREATE TABLE` 語法
-- 支援 MySQL 5.7+ / PostgreSQL 12+
-- 需處理：PRIMARY KEY、FOREIGN KEY、UNIQUE、INDEX
-- 欄位型別映射：INT、BIGINT、VARCHAR、TEXT、TIMESTAMP、BOOLEAN、DECIMAL、JSON
-
-### 儲存策略
-
-- **MVP（Phase 1–6）**：localStorage 暫存 DDL 與查詢設定
-- **Phase 7**：啟用 File System Access API；首次開啟自動偵測 localStorage 資料並提示匯出為 `.md`，完成一次性遷移
-- **Fallback（Firefox）**：手動匯入/匯出（`<input type="file">` + `Blob` 下載）
-
-## 建置順序（8 階段）
-
-| 階段 | 項目 | 交付內容 |
-|------|------|---------|
-| 1 | DDL Parser 核心 | Table / Column 資料結構、FK 解析 |
-| 2 | SELECT UI + 即時 SQL 預覽 | 欄位勾選介面、SQL 預覽區 |
-| 3 | WHERE / ORDER BY / LIMIT | 條件設定 UI、完整 SELECT 產生 |
-| 4 | JOIN 多表查詢 | FK 推薦、JOIN 設定、Alias 處理 |
-| 5 | DML 模板 | INSERT / UPDATE / DELETE 產生器 |
-| 6 | ERD 關聯圖 | Mermaid 繪圖、節點互動 |
-| 7 | 資料儲存 | File System Access API、降級匯出入、localStorage 遷移 |
-| 8 | 離線打包與驗證 | 單檔 inline、跨瀏覽器測試 |
-
-## 離線打包（Phase 8）
-
-執行 PowerShell 打包腳本，自動下載函式庫並產生單一 `prism.html`：
-
 ```powershell
-# 先確保 tailwind.css 已生成
+# 首次：下載獨立執行檔（存放於專案根目錄，已加入 .gitignore）
+Invoke-WebRequest -Uri 'https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe' -OutFile tailwindcss.exe
+
+# 每次新增 Tailwind class 後重新產生
 ./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
 
-# 執行打包
+# 開發期間持續監聽
+./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --watch
+```
+
+### 建置指令
+
+```bat
+# Windows（Tailwind + 打包一次完成）
+build.bat
+
+# 或分步執行
+./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
 pwsh ./scripts/build.ps1
 ```
 
-腳本會自動下載 Vue 3 和 Mermaid.js 至 `vendor/`（已加入 `.gitignore`），
-然後將 tailwind.css + vendor JS + src/ 所有模組合併 inline 進 `prism.html`。
+- **本地**：輸出至 `prism.html`
+- **CI（GitHub Actions）**：輸出至 `dist/index.html`，自動部署至 GitHub Pages
 
-`vendor/` 和 `prism.html` 均為本地生成物，不 commit。
+`vendor/`、`prism.html`、`tailwind.css` 均為本地生成物，不 commit。
 
-## 儲存格式
+### DDL Parser 測試
 
-以 `.md` 檔儲存，DDL 與查詢設定以 code block 結構存放，人類可讀且適合版控。換電腦時複製 `.md` 檔 → 重新選擇即可還原。
+`src/parser/testcases.js` 維護完整測試案例，在瀏覽器 console 執行即可驗證：
 
-File System Access API 僅支援 Chrome / Edge；Firefox 自動降級為手動匯出入。
+```js
+// 開啟 index.html 後於 console 執行
+window.parseDDL(`CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))`)
+```
+
+## 技術棧
+
+| 用途 | 技術 | 開發載入 | 發布 |
+|------|------|---------|------|
+| 響應式 UI | Vue 3 Global Build | CDN (unpkg) | vendor inline |
+| 樣式 | Tailwind CSS v4 | `tailwind.css` 外部檔 | inline |
+| ERD 圖表 | Mermaid.js | CDN (jsdelivr) | vendor inline |
+| DDL 解析 | 自製 Parser（IIFE） | `<script src>` | inline |
+| 目錄持久化 | IndexedDB | — | — |
+
+所有模組皆為 IIFE，透過 `window.*` 全域暴露，無 ESM import。
+
+## 架構設計
+
+### 模組載入順序（index.html 與 build.ps1 需保持一致）
+
+```
+Vue → Mermaid
+  → parser/ddl-parser.js          (window.parseDDL)
+  → storage/idb-handles.js        (window.idbHandles)
+  → storage/file-system.js        (window.fsStorage)
+  → storage/md-format.js          (window.mdFormat)
+  → builder/select-builder.js     (window.buildSelect)
+  → builder/join-builder.js       (window.joinBuilder)
+  → builder/dml-builder.js        (window.dmlBuilder)
+  → components/JoinBuilder.js     (window.JoinBuilderComponent)
+  → components/DmlPanel.js        (window.DmlPanelComponent)
+  → components/TablePanel.js      (window.TablePanelComponent)
+  → components/SqlPreview.js      (window.SqlPreviewComponent)
+  → components/ConditionBuilder.js (window.ConditionBuilderComponent)
+  → components/SortLimitPanel.js  (window.SortLimitPanelComponent)
+  → components/ErdPanel.js        (window.ErdPanelComponent)
+  → app.js                        (Vue app.mount)
+```
+
+### 核心資料流
+
+```
+.sql 檔案匯入（追加模式，支援多檔）
+    ↓ parseDDL() → TableSchema[]
+Vue 3 app.js（所有 reactive state 集中管理）
+    ↓ 使用者操作（欄位勾選 / 條件設定 / JOIN / 方言切換）
+buildSelect() / joinBuilder.buildJoinSql() / dmlBuilder.*()
+    ↓ computed sqlOutput
+SQL 預覽區即時更新
+```
+
+### 狀態持久化策略
+
+| 資料 | 儲存位置 | 說明 |
+|------|---------|------|
+| DDL + savedQueries | `.md` 檔（FSA 或手動匯出） | 主要業務資料 |
+| 目錄 handle | IndexedDB（idb-handles.js） | 跨 session 記憶儲存目錄 |
+| 主題偏好 | localStorage | 非業務資料，允許 localStorage |
+
+**自動儲存**：rawDdl 或 savedQueries 變更後 1.5 秒寫入（需先設定儲存目錄）。
+
+### DDL Parser 設計
+
+- Regex + 狀態機解析 `CREATE TABLE`，支援 MySQL 5.7+ / PostgreSQL 12+
+- 追加模式：多個 `.sql` 檔可累加（依 tableName 去重，已存在的不覆蓋）
+- 無 textarea 輸入，**僅支援檔案匯入**
+
+### SQL 方言支援
+
+`dialect` ref 控制分頁語法差異：`mysql` / `postgresql` / `mssql` / `oracle`
+
+### 儲存格式（.md）
+
+DDL 與 savedQueries 以 code block 結構序列化，人類可讀且適合版控。`mdFormat.serialize()` / `mdFormat.deserialize()` 負責轉換。
 
 ## 關鍵邊界條件（DDL Parser）
 
