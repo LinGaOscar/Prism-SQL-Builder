@@ -65,7 +65,7 @@ window.parseDDL(`CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))`)
 |------|------|---------|------|
 | 響應式 UI | Vue 3 Global Build | CDN (unpkg) | vendor inline |
 | 樣式 | Tailwind CSS v4 | `tailwind.css` 外部檔 | inline |
-| ERD 圖表 | Mermaid.js | CDN (jsdelivr) | vendor inline |
+| ERD 圖表 | 自製 SVG 渲染器（ErdPanel.js） | `<script src>` | inline |
 | DDL 解析 | 自製 Parser（IIFE） | `<script src>` | inline |
 | 目錄持久化 | IndexedDB | — | — |
 
@@ -76,7 +76,7 @@ window.parseDDL(`CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))`)
 ### 模組載入順序（index.html 與 build.ps1 需保持一致）
 
 ```
-Vue → Mermaid
+Vue
   → parser/ddl-parser.js          (window.parseDDL)
   → storage/idb-handles.js        (window.idbHandles)
   → storage/file-system.js        (window.fsStorage)
@@ -112,19 +112,26 @@ SQL 預覽區即時更新
 |------|---------|------|
 | DDL + savedQueries | `.md` 檔（FSA 或手動匯出） | 主要業務資料 |
 | 目錄 handle | IndexedDB（idb-handles.js） | 跨 session 記憶儲存目錄 |
-| 主題偏好 | localStorage | 非業務資料，允許 localStorage |
+| Query History | localStorage（`prism_query_history`） | 暫態，最多 50 筆，複製 SQL 時自動寫入 |
+| 主題偏好 | localStorage（`prism_theme`） | 非業務資料，允許 localStorage |
 
 **自動儲存**：rawDdl 或 savedQueries 變更後 1.5 秒寫入（需先設定儲存目錄）。
 
 ### DDL Parser 設計
 
-- Regex + 狀態機解析 `CREATE TABLE`，支援 MySQL 5.7+ / PostgreSQL 12+
+- Regex + 狀態機解析 `CREATE TABLE`，支援 MySQL / PostgreSQL / MSSQL / Oracle
+- MSSQL schema-qualified 表名（`[dbo].[table]` 或 `dbo.table`）解析為 `schema.table` 格式
 - 追加模式：多個 `.sql` 檔可累加（依 tableName 去重，已存在的不覆蓋）
+- 匯入時自動偵測方言（Oracle / MSSQL 關鍵字）並切換 `dialect` ref
 - 無 textarea 輸入，**僅支援檔案匯入**
 
 ### SQL 方言支援
 
 `dialect` ref 控制分頁語法差異：`mysql` / `postgresql` / `mssql` / `oracle`
+
+### SQL 格式化（SqlPreview.js）
+
+`formatSql()` 展開多欄 SELECT、多條件 WHERE（AND）、多排序 ORDER BY，每項獨立一行。由 `pretty` ref 切換，複製內容跟隨格式化狀態。
 
 ### 儲存格式（.md）
 
