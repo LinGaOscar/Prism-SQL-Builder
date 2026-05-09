@@ -3,7 +3,8 @@
 window.SqlPreviewComponent = {
   name: 'SqlPreview',
   props: { sql: String },
-  setup(props) {
+  emits: ['copy'],
+  setup(props, { emit }) {
     const { ref, computed } = Vue
     const copyLabel = ref('複製')
     const pretty = ref(false)
@@ -51,6 +52,7 @@ window.SqlPreviewComponent = {
       await navigator.clipboard.writeText(displaySql.value)
       copyLabel.value = '已複製！'
       setTimeout(() => { copyLabel.value = '複製' }, 1500)
+      emit('copy')
     }
 
     return { copyLabel, copySql, pretty, displaySql }

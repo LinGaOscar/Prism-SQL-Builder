@@ -51,6 +51,7 @@
       const dialect = ref('mysql')         // 'mysql' | 'postgresql' | 'mssql' | 'oracle'
       const savedQueries = ref([])         // [{ name, selectedTable, selectedColumns, where, orderBy, limit, offset, joins, joinMode }]
       const saveQueryName = ref('')        // 儲存查詢時的名稱輸入框
+      const queryHistory = ref([])         // 複製時自動記錄，存 localStorage，最多 50 筆
 
       // 深色/淺色模式切換
       const isDark = ref(true)
@@ -216,6 +217,9 @@
 
       // 頁面載入時，套用儲存的主題偏好並嘗試從 IndexedDB 還原目錄 handle
       onMounted(async () => {
+        // 載入 Query History（暫態資料，存 localStorage）
+        queryHistory.value = JSON.parse(localStorage.getItem('prism_query_history') || '[]')
+
         // 還原主題偏好（主題偏好不屬於業務資料，允許用 localStorage 儲存）
         const savedTheme = localStorage.getItem('prism_theme') || 'light'
         isDark.value = savedTheme === 'dark'
@@ -395,6 +399,41 @@
         savedQueries.value = savedQueries.value.filter((_, i) => i !== idx)
       }
 
+      // 複製 SQL 時自動記錄至 Query History（localStorage，最多 50 筆，新的在前）
+      function addToHistory() {
+        if (!sqlOutput.value) return
+        const entry = {
+          sql: sqlOutput.value,
+          dialect: dialect.value,
+          tableName: selectedTable.value,
+          selectedColumns: [...selectedColumns.value],
+          where: JSON.parse(JSON.stringify(where.value)),
+          orderBy: JSON.parse(JSON.stringify(orderBy.value)),
+          limit: limit.value,
+          offset: offset.value,
+          joins: JSON.parse(JSON.stringify(joins.value)),
+          joinMode: joinMode.value,
+          timestamp: Date.now()
+        }
+        const list = [entry, ...queryHistory.value].slice(0, 50)
+        queryHistory.value = list
+        localStorage.setItem('prism_query_history', JSON.stringify(list))
+      }
+
+      function clearHistory() {
+        queryHistory.value = []
+        localStorage.removeItem('prism_query_history')
+      }
+
+      // 時間戳轉為易讀格式，例如「今天 14:23」或「05/07 09:11」
+      function formatHistoryTime(ts) {
+        const d = new Date(ts)
+        const now = new Date()
+        const isToday = d.toDateString() === now.toDateString()
+        const hm = d.toTimeString().slice(0, 5)
+        return isToday ? `今天 ${hm}` : `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${hm}`
+      }
+
       return {
         rawDdl, tables, selectedTable, selectedColumns,
         parseError, sqlOutput,
@@ -406,6 +445,7 @@
         saveDir, saveDirName, schemaName,
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
+        queryHistory,
         started, showStart,
         importSqlFile,
         setSelectedTable,
@@ -413,6 +453,7 @@
         setSelectedColumns(cols) { selectedColumns.value = cols },
         saveToFile, openFromFile, exportFile, importFromInput,
         saveCurrentQuery, loadQuery, deleteQuery,
+        addToHistory, clearHistory, formatHistoryTime,
         pickSaveDir, clearSaveDir,
         skipStart, startWithDir,
         isDark, toggleTheme
@@ -594,7 +635,7 @@
 
         <!-- Tab 切換列（選了 table 才顯示） -->
         <div v-if="tables.length > 0" class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML'],['erd','ERD']]" :key="tab[0]"
+          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML'],['erd','ERD'],['history','History']]" :key="tab[0]"
                   @click="activeTab = tab[0]"
                   :class="[
                     'px-4 py-2.5 text-sm -mb-px border-b-2 transition-colors',
@@ -654,7 +695,7 @@
               @select-table="setSelectedTable"
               @update-columns="setSelectedColumns"
             />
-            <SqlPreview :sql="sqlOutput" />
+            <SqlPreview :sql="sqlOutput" @copy="addToHistory" />
           </div>
 
           <!-- 條件設定區（選了 table 才顯示） -->
@@ -697,6 +738,45 @@
             :tables="tables"
             @select-table="goToTable"
           />
+        </div>
+
+        <!-- Query History 頁籤內容：複製時自動記錄，最多 50 筆 -->
+        <div v-show="activeTab === 'history'" class="pt-4">
+          <div v-if="queryHistory.length === 0" class="text-xs text-zinc-400 dark:text-zinc-500 text-center py-8">
+            尚無記錄，複製 SQL 後自動儲存
+          </div>
+          <div v-else>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">{{ queryHistory.length }} 筆記錄</span>
+              <button @click="clearHistory"
+                      class="text-[11px] text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                清除全部
+              </button>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div v-for="(h, idx) in queryHistory" :key="idx"
+                   class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 font-mono uppercase">{{ h.dialect }}</span>
+                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ h.tableName }}</span>
+                  </div>
+                  <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ formatHistoryTime(h.timestamp) }}</span>
+                </div>
+                <pre class="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono truncate mb-2">{{ h.sql.split('\n')[0] }}</pre>
+                <div class="flex gap-2">
+                  <button @click="loadQuery(h); activeTab = 'query'"
+                          class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    載入
+                  </button>
+                  <button @click="navigator.clipboard.writeText(h.sql)"
+                          class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    複製 SQL
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         </div>
