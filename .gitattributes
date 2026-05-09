@@ -1,0 +1,8 @@
+# 所有文字檔統一使用 LF，避免 Windows 與 macOS/Linux 協作時換行符混亂
+* text=auto eol=lf
+
+# 二進位檔不做換行轉換
+*.exe binary
+*.png binary
+*.jpg binary
+*.ico binary
