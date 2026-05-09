@@ -297,7 +297,7 @@
         const lineUpper = line.toUpperCase().trimStart();
 
         // 表級 PRIMARY KEY 約束
-        if (/^PRIMARY\s+KEY\b/.test(lineUpper)) {
+        if (/^(?:CONSTRAINT\s+\S+\s+)?PRIMARY\s+KEY\b/.test(lineUpper)) {
           const pks = parsePrimaryKeyLine(line);
           primaryKeys.push(...pks);
           continue;
@@ -315,8 +315,8 @@
           continue;
         }
 
-        // 跳過 CONSTRAINT ... UNIQUE 等表級約束
-        if (/^CONSTRAINT\b/.test(lineUpper) && !/^CONSTRAINT.*FOREIGN\s+KEY\b/.test(lineUpper)) {
+        // 跳過其餘的 CONSTRAINT (例如 CHECK, UNIQUE)
+        if (/^CONSTRAINT\b/.test(lineUpper)) {
           continue;
         }
 
@@ -339,6 +339,39 @@
       }
 
       tables.push({ tableName, columns, primaryKeys, foreignKeys });
+    }
+
+    // 處理外部的 ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY
+    const alterPkRe = /ALTER\s+TABLE\s+([^\s]+(?:[\s\S]*?)?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/gi;
+    let pkMatch;
+    while ((pkMatch = alterPkRe.exec(sql)) !== null) {
+      const parsedTableName = parseQualifiedIdentifier(pkMatch[1].trim());
+      const tableName = parsedTableName.name;
+      const targetTable = tables.find(t => t.tableName === tableName);
+      if (targetTable) {
+        const pks = pkMatch[2].split(',').map(s => parseIdentifier(s.trim()).name).filter(Boolean);
+        targetTable.primaryKeys.push(...pks);
+        targetTable.columns.forEach(col => {
+          if (pks.includes(col.name)) col.isPrimaryKey = true;
+        });
+      }
+    }
+
+    // 處理外部的 ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY
+    const alterFkRe = /ALTER\s+TABLE\s+([^\s]+(?:[\s\S]*?)?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)\s*REFERENCES\s+((?:[`"\[]?[\w]+[`"\]]?\s*\.\s*)?[`"\[]?[\w]+[`"\]]?)\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)/gi;
+    let fkMatch;
+    while ((fkMatch = alterFkRe.exec(sql)) !== null) {
+      const parsedTableName = parseQualifiedIdentifier(fkMatch[1].trim());
+      const tableName = parsedTableName.name;
+      const targetTable = tables.find(t => t.tableName === tableName);
+      if (targetTable) {
+        const fk = {
+          column: stripIdentifierQuotes(fkMatch[2].trim()),
+          refTable: parseQualifiedIdentifier(fkMatch[3].trim()).name,
+          refColumn: stripIdentifierQuotes(fkMatch[4].trim())
+        };
+        targetTable.foreignKeys.push(fk);
+      }
     }
 
     return tables;
