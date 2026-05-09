@@ -77,9 +77,12 @@ window.TablePanelComponent = {
                      :checked="selectedColumns.includes(col.name)"
                      @change="toggleColumn(col.name)"
                      class="accent-indigo-500 cursor-pointer" />
-              <label :for="'col-' + col.name" class="text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer flex-1">
+              <label :for="'col-' + col.name" class="text-sm text-zinc-800 dark:text-zinc-200 cursor-pointer flex-1 min-w-0">
                 {{ col.name }}
                 <span class="text-zinc-400 dark:text-zinc-500 text-xs ml-1">{{ col.type }}</span>
+                <span v-if="col.comment"
+                      class="text-[11px] text-zinc-400 dark:text-zinc-500 ml-1.5 italic truncate"
+                      :title="col.comment">{{ col.comment }}</span>
               </label>
               <span v-if="col.isPrimaryKey"
                     class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">PK</span>

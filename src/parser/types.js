@@ -13,6 +13,7 @@
  * @property {boolean} isPrimaryKey - 是否為主鍵（行內或表級 PRIMARY KEY 皆設為 true）
  * @property {string|null} defaultValue - DEFAULT 預設值字串；無預設值時為 null
  * @property {boolean} isAutoIncrement - 是否自動遞增（MySQL AUTO_INCREMENT 或 PostgreSQL SERIAL）
+ * @property {string|null} comment - 欄位備註（MySQL 行內 COMMENT 'xxx'）；無備註時為 null
  */
 
 /**

@@ -65,7 +65,7 @@
         }
       }
 
-      // 解析 DDL
+      // 解析 DDL，並自動偵測方言同步右上角選單
       function handleParse() {
         parseError.value = ''
         try {
@@ -75,23 +75,39 @@
           selectedColumns.value = []
           where.value = []
           orderBy.value = []
+          dialect.value = window.detectDialect(rawDdl.value)
         } catch (e) {
           parseError.value = '解析失敗：' + e.message
         }
       }
 
+      function normalizeTableName(name) {
+        return String(name || '').trim().toLowerCase()
+      }
+
       // 追加解析：將新 DDL 合併進現有 tables，依 tableName 去重（新增不覆蓋）
-      function handleAppend() {
+      function handleAppend(nextDdl = rawDdl.value) {
         parseError.value = ''
         try {
-          const result = window.parseDDL(rawDdl.value)
-          const existingNames = new Set(tables.value.map(t => t.tableName))
-          const newTables = result.filter(t => !existingNames.has(t.tableName))
+          const result = window.parseDDL(nextDdl)
+          if (result.length === 0) {
+            parseError.value = '追加失敗：檔案內沒有可解析的 CREATE TABLE'
+            return
+          }
+
+          const existingNames = new Set(tables.value.map(t => normalizeTableName(t.tableName)))
+          const newTables = result.filter(t => !existingNames.has(normalizeTableName(t.tableName)))
+          if (newTables.length === 0) {
+            parseError.value = '追加失敗：檔案內的資料表已存在'
+            return
+          }
+
           tables.value = [...tables.value, ...newTables]
           if (!selectedTable.value && tables.value.length > 0) {
             selectedTable.value = tables.value[0].tableName
           }
-          rawDdl.value = ''
+          rawDdl.value = [rawDdl.value.trim(), nextDdl.trim()].filter(Boolean).join('\n\n')
+          dialect.value = window.detectDialect(nextDdl)
         } catch (e) {
           parseError.value = '解析失敗：' + e.message
         }
@@ -101,11 +117,12 @@
       async function importSqlFile(event) {
         const file = event.target.files[0]
         if (!file) return
-        rawDdl.value = await file.text()
+        const importedDdl = await file.text()
         // 若已有 tables 則追加，否則直接解析（首次匯入）
         if (tables.value.length > 0) {
-          handleAppend()
+          handleAppend(importedDdl)
         } else {
+          rawDdl.value = importedDdl
           handleParse()
         }
         event.target.value = ''  // 允許重複選同一個檔案
@@ -142,16 +159,23 @@
         })
       })
 
+      function splitQualifiedColumn(value) {
+        const lastDot = String(value || '').lastIndexOf('.')
+        if (lastDot === -1) {
+          return { table: selectedTable.value, column: value }
+        }
+        return {
+          table: value.slice(0, lastDot),
+          column: value.slice(lastDot + 1)
+        }
+      }
+
       // 即時產生 SQL（computed 自動追蹤所有相關 ref 變更）
       const sqlOutput = computed(() => {
         if (!selectedTable.value) return ''
         // JOIN 模式：使用 joinBuilder 組出含 JOIN 子句的完整 SQL
         if (joinMode.value && joins.value.length > 0) {
-          const cols = selectedColumns.value.map(s => {
-            const parts = s.split('.')
-            // "table.column" 格式拆解，純欄位名稱則歸屬 baseTable
-            return parts.length === 2 ? { table: parts[0], column: parts[1] } : { table: selectedTable.value, column: s }
-          })
+          const cols = selectedColumns.value.map(splitQualifiedColumn)
           return window.joinBuilder.buildJoinSql({
             baseTable: selectedTable.value,
             joins: joins.value,

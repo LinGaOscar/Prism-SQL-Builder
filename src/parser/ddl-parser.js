@@ -64,6 +64,38 @@
   }
 
   /**
+   * 移除識別符外層引號。
+   * @param {string} name
+   * @returns {string}
+   */
+  function stripIdentifierQuotes(name) {
+    return name.replace(/^[`"\[]|[`"\]]$/g, '');
+  }
+
+  /**
+   * 解析可能含 schema 前綴的完整識別符，例如 dbo.Users、[dbo].[Users]、"public"."users"。
+   * @param {string} str
+   * @returns {{ name: string, rest: string }}
+   */
+  function parseQualifiedIdentifier(str) {
+    const parts = [];
+    let rest = str;
+
+    while (true) {
+      const parsed = parseIdentifier(rest);
+      if (!parsed.name) break;
+
+      parts.push(parsed.name);
+      rest = parsed.rest.trimStart();
+
+      if (rest[0] !== '.') break;
+      rest = rest.slice(1);
+    }
+
+    return { name: parts.join('.'), rest };
+  }
+
+  /**
    * 從 CREATE TABLE 之後的括號 body 文字中，
    * 提取匹配成對括號的完整內容（不含最外層括號）。
    * 業務背景：CREATE TABLE body 可能含巢狀括號，例如 DEFAULT (CURRENT_TIMESTAMP)
@@ -169,13 +201,21 @@
       defaultValue = defaultMatch[1];
     }
 
+    // MySQL 行內 COMMENT 'xxx' 提取
+    let comment = null;
+    const commentMatch = rest.match(/\bCOMMENT\s+'((?:[^'\\]|\\.)*)'/i);
+    if (commentMatch) {
+      comment = commentMatch[1];
+    }
+
     return {
       name,
       type,
       nullable,
       isPrimaryKey,
       defaultValue,
-      isAutoIncrement
+      isAutoIncrement,
+      comment
     };
   }
 
@@ -204,15 +244,14 @@
   function parseForeignKeyLine(line) {
     // FOREIGN KEY (`col`) REFERENCES `tbl` (`ref`)
     const m = line.match(
-      /FOREIGN\s+KEY\s*\(\s*([`"]?[\w]+[`"]?)\s*\)\s*REFERENCES\s+([`"]?[\w]+[`"]?)\s*\(\s*([`"]?[\w]+[`"]?)\s*\)/i
+      /FOREIGN\s+KEY\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)\s*REFERENCES\s+((?:[`"\[]?[\w]+[`"\]]?\s*\.\s*)?[`"\[]?[\w]+[`"\]]?)\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)/i
     );
     if (!m) return null;
 
-    const stripQuotes = s => s.replace(/^[`"]|[`"]$/g, '');
     return {
-      column: stripQuotes(m[1]),
-      refTable: stripQuotes(m[2]),
-      refColumn: stripQuotes(m[3])
+      column: stripIdentifierQuotes(m[1]),
+      refTable: m[2].split('.').map(s => stripIdentifierQuotes(s.trim())).join('.'),
+      refColumn: stripIdentifierQuotes(m[3])
     };
   }
 
@@ -230,16 +269,17 @@
     const tables = [];
 
     // 尋找所有 CREATE TABLE [IF NOT EXISTS] name (...)
-    // 識別符支援反引號、雙引號、無引號
-    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\[]?[\w]+[`"\]]?)/gi;
+    // 識別符支援反引號、雙引號、方括號、無引號，以及 schema.table 前綴
+    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?/gi;
     let match;
 
     while ((match = createTableRe.exec(sql)) !== null) {
-      const rawTableName = match[1];
-      const tableName = rawTableName.replace(/^[`"]|[`"]$/g, '');
+      const parsedTableName = parseQualifiedIdentifier(sql.slice(createTableRe.lastIndex));
+      const tableName = parsedTableName.name;
+      if (!tableName) continue;
 
       // 從匹配位置之後找括號 body
-      const fromParen = sql.slice(match.index + match[0].length);
+      const fromParen = parsedTableName.rest;
       const extracted = extractParenBody(fromParen);
       if (!extracted) continue;
 
@@ -304,7 +344,40 @@
     return tables;
   }
 
+  /**
+   * 從 DDL 文字推斷 SQL 方言，供匯入後自動切換右上角選單。
+   * 優先順序：MSSQL > Oracle > PostgreSQL > MySQL（預設）。
+   * 業務背景：使用者匯入不同來源的 DDL 時，分頁語法（LIMIT/OFFSET vs FETCH NEXT）
+   *           與型別對應差異較大，自動偵測可避免手動切換錯誤。
+   * @param {string} sql
+   * @returns {'mysql'|'postgresql'|'mssql'|'oracle'}
+   */
+  function detectDialect(sql) {
+    const upper = sql.toUpperCase();
+    // MSSQL：方括號識別符、IDENTITY、NVARCHAR、DATETIME2、UNIQUEIDENTIFIER
+    if (
+      /\[[A-Za-z_][\w ]*\]/.test(sql) ||
+      /\bIDENTITY\s*\(/.test(upper) ||
+      /\bNVARCHAR\b/.test(upper) ||
+      /\bDATETIME2\b/.test(upper) ||
+      /\bUNIQUEIDENTIFIER\b/.test(upper)
+    ) return 'mssql';
+    // Oracle：VARCHAR2、NUMBER(、CLOB、NVARCHAR2
+    if (
+      /\bVARCHAR2\s*\(/.test(upper) ||
+      /\bNUMBER\s*\(/.test(upper) ||
+      /\bCLOB\b/.test(upper) ||
+      /\bNVARCHAR2\b/.test(upper)
+    ) return 'oracle';
+    // PostgreSQL：SERIAL 系列、JSONB
+    if (/\b(?:BIGSERIAL|SMALLSERIAL|SERIAL)\b/.test(upper) || /\bJSONB\b/.test(upper)) {
+      return 'postgresql';
+    }
+    return 'mysql';
+  }
+
   // 掛載到 window，供 HTML inline 後全域使用
   window.parseDDL = parseDDL;
+  window.detectDialect = detectDialect;
 
 })();
