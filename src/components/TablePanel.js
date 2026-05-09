@@ -102,7 +102,7 @@ window.TablePanelComponent = {
               <button @click="selectAll(tbl.tableName)" class="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 shadow-sm">全選</button>
               <button @click="clearAll(tbl.tableName)" class="text-xs text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 shadow-sm">清除</button>
             </div>
-            <ul>
+            <ul class="max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
               <li v-for="col in tbl.columns" :key="col.name"
                   class="flex items-center gap-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded px-2 -mx-2 transition-colors group cursor-pointer"
                   @click.self="toggleColumn(tbl.tableName, col.name)">
