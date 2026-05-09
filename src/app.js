@@ -218,7 +218,9 @@
       // 頁面載入時，套用儲存的主題偏好並嘗試從 IndexedDB 還原目錄 handle
       onMounted(async () => {
         // 載入 Query History（暫態資料，存 localStorage）
+        // 相容舊版 history 條目（key 為 tableName），統一正規化為 selectedTable
         queryHistory.value = JSON.parse(localStorage.getItem('prism_query_history') || '[]')
+          .map(h => h.selectedTable ? h : { ...h, selectedTable: h.tableName || '' })
 
         // 還原主題偏好（主題偏好不屬於業務資料，允許用 localStorage 儲存）
         const savedTheme = localStorage.getItem('prism_theme') || 'light'
@@ -405,7 +407,7 @@
         const entry = {
           sql: sqlOutput.value,
           dialect: dialect.value,
-          tableName: selectedTable.value,
+          selectedTable: selectedTable.value,
           selectedColumns: [...selectedColumns.value],
           where: JSON.parse(JSON.stringify(where.value)),
           orderBy: JSON.parse(JSON.stringify(orderBy.value)),
@@ -759,7 +761,7 @@
                 <div class="flex items-center justify-between mb-1.5">
                   <div class="flex items-center gap-1.5">
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 font-mono uppercase">{{ h.dialect }}</span>
-                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ h.tableName }}</span>
+                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ h.selectedTable }}</span>
                   </div>
                   <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ formatHistoryTime(h.timestamp) }}</span>
                 </div>
