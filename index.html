@@ -25,13 +25,6 @@
 
   <!-- 依賴載入順序：Vue → Mermaid → Parser → Builder → Components → App -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <script>
-    // Mermaid 初始化：關閉自動掃描，使用深色主題配合整體深色背景
-    document.addEventListener('DOMContentLoaded', function() {
-      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' })
-    })
-  </script>
   <script src="./src/parser/ddl-parser.js"></script>
   <script src="./src/storage/idb-handles.js"></script>
   <script src="./src/storage/file-system.js"></script>

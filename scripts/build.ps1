@@ -10,22 +10,16 @@ Set-Location $root
 $vendorDir = Join-Path $root 'vendor'
 if (!(Test-Path $vendorDir)) { New-Item -ItemType Directory $vendorDir | Out-Null }
 
-$vueFile     = Join-Path $vendorDir 'vue.global.js'
-$mermaidFile = Join-Path $vendorDir 'mermaid.min.js'
+$vueFile = Join-Path $vendorDir 'vue.global.js'
 
 if (!(Test-Path $vueFile)) {
   Write-Host '下載 Vue 3...'
   Invoke-WebRequest -Uri 'https://unpkg.com/vue@3/dist/vue.global.prod.js' -OutFile $vueFile
 }
-if (!(Test-Path $mermaidFile)) {
-  Write-Host '下載 Mermaid.js...'
-  Invoke-WebRequest -Uri 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js' -OutFile $mermaidFile
-}
 
 # ── 2. 讀取各資源 ──────────────────────────────────────────
 $tailwindCss = [System.IO.File]::ReadAllText((Join-Path $root 'tailwind.css'), [System.Text.Encoding]::UTF8)
 $vueJs       = [System.IO.File]::ReadAllText($vueFile, [System.Text.Encoding]::UTF8)
-$mermaidJs   = [System.IO.File]::ReadAllText($mermaidFile, [System.Text.Encoding]::UTF8)
 
 # src/ 模組合併順序（依 index.html 的 script 載入順序）
 $srcFiles = @(
@@ -48,7 +42,7 @@ $srcFiles = @(
 
 $appJs = ($srcFiles | ForEach-Object {
   $path = Join-Path $root $_
-  "/* === $_ === */`n" + [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+  "/* === $_ === */`n" + [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8).TrimEnd() + "`n;"
 }) -join "`n`n"
 
 # ── 3. 產生 prism.html ──────────────────────────────────────
@@ -81,10 +75,6 @@ $browserCheck</head>
 
   <script>/* === Vue 3 === */
 $vueJs</script>
-  <script>/* === Mermaid.js === */
-$mermaidJs
-mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
-</script>
   <script>
 $appJs
 </script>
