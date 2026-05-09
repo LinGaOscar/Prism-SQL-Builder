@@ -46,20 +46,7 @@ $appJs = ($srcFiles | ForEach-Object {
 }) -join "`n`n"
 
 # ── 3. 產生 prism.html ──────────────────────────────────────
-$browserCheck = @'
-  <script>
-    (function () {
-      var ua = navigator.userAgent;
-      var isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua) && !/OPR\//.test(ua);
-      var isEdge   = /Edg\//.test(ua);
-      if (!isChrome && !isEdge) {
-        alert('Prism SQL Builder 僅支援 Chrome 或 Edge 瀏覽器。\n請改用 Chrome / Edge 開啟。');
-        window.close();
-      }
-    })();
-  </script>
-'@
-
+$browserCheck = ""
 $html = @"
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark">

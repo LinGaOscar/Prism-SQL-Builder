@@ -5,20 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Prism SQL Builder</title>
   <link rel="stylesheet" href="./tailwind.css">
-  <script>
-    // 僅允許 Chrome 與 Edge，其他瀏覽器顯示警告後關閉視窗。
-    // 業務背景：File System Access API 僅 Chromium 核心支援；
-    //           在不支援的瀏覽器開啟會導致儲存功能完全失效。
-    (function () {
-      var ua = navigator.userAgent;
-      var isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua) && !/OPR\//.test(ua);
-      var isEdge   = /Edg\//.test(ua);
-      if (!isChrome && !isEdge) {
-        alert('Prism SQL Builder 僅支援 Chrome 或 Edge 瀏覽器。\n請改用 Chrome / Edge 開啟。');
-        window.close();
-      }
-    })();
-  </script>
+
 </head>
 <body class="bg-zinc-50 dark:bg-[#111111] text-zinc-900 dark:text-zinc-50 min-h-screen">
   <div id="app"></div>

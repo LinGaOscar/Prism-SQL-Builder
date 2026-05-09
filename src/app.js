@@ -637,8 +637,14 @@
 
         <!-- Tab 切換列（選了 table 才顯示） -->
         <div v-if="tables.length > 0" class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-          <button v-for="tab in [['query','SELECT / JOIN'],['dml','DML'],['erd','ERD'],['history','History']]" :key="tab[0]"
+          <button v-for="tab in [
+            ['query', 'SELECT / JOIN', ''],
+            ['dml', 'DML', '產生 INSERT / UPDATE / DELETE 語法'],
+            ['erd', 'ERD', '視覺化檢視資料表關聯圖'],
+            ['history', 'History', '']
+          ]" :key="tab[0]"
                   @click="activeTab = tab[0]"
+                  :title="tab[2]"
                   :class="[
                     'px-4 py-2.5 text-sm -mb-px border-b-2 transition-colors',
                     activeTab === tab[0]
@@ -694,6 +700,8 @@
               :tables="tables"
               :selected-table="selectedTable"
               :selected-columns="selectedColumns"
+              :join-mode="joinMode"
+              :joins="joins"
               @select-table="setSelectedTable"
               @update-columns="setSelectedColumns"
             />
@@ -730,16 +738,19 @@
         </div>
 
         <!-- DML 模板頁籤內容 -->
-        <div v-show="activeTab === 'dml'" class="pt-4">
+        <div v-show="activeTab === 'dml'" class="pt-4 flex flex-col gap-4">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            <strong class="font-medium text-zinc-700 dark:text-zinc-300">💡 DML 操作說明：</strong>選擇資料表後，切換上方「INSERT / UPDATE / DELETE」模式與「佔位符風格（:name 或 ?）」，系統會自動產生對應的 SQL 語法模板，您可以直接複製使用於您的後端程式碼中。
+          </p>
           <DmlPanel :table="currentTable" />
         </div>
 
         <!-- ERD 關聯圖頁籤內容 -->
-        <div v-show="activeTab === 'erd'" class="pt-4">
-          <ErdPanel
-            :tables="tables"
-            @select-table="goToTable"
-          />
+        <div v-show="activeTab === 'erd'" class="pt-4 flex flex-col gap-4">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            <strong class="font-medium text-zinc-700 dark:text-zinc-300">💡 ERD 操作說明：</strong>此處顯示資料表的 Foreign Key 關聯圖。您可以拖曳畫面來檢視完整的結構，或直接<strong class="text-indigo-600 dark:text-indigo-400">點擊資料表方塊</strong>，系統會為您自動切換至該資料表的查詢與操作介面。
+          </p>
+          <ErdPanel :tables="tables" :base-table="selectedTable" @select-table="setSelectedTable" />
         </div>
 
         <!-- Query History 頁籤內容：複製時自動記錄，最多 50 筆 -->
@@ -765,7 +776,7 @@
                   </div>
                   <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ formatHistoryTime(h.timestamp) }}</span>
                 </div>
-                <pre class="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono truncate mb-2">{{ h.sql.split('\n')[0] }}</pre>
+                <pre class="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono truncate mb-2">{{ h.sql.split('\\n')[0] }}</pre>
                 <div class="flex gap-2">
                   <button @click="loadQuery(h); activeTab = 'query'"
                           class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
