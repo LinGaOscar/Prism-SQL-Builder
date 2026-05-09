@@ -230,6 +230,16 @@
   assert('TC-11 第二張表名稱', multiTableResult[1].tableName, 'b');
   assert('TC-11 FK 數量', multiTableResult[1].foreignKeys.length, 1);
 
+  // TC-11B：MSSQL / schema-qualified table names should not collapse to only the schema name
+  const schemaTableResult = parseDDL(
+    'CREATE TABLE [dbo].[customers] (id INT PRIMARY KEY);' +
+    'CREATE TABLE dbo.orders (id INT PRIMARY KEY, customer_id INT, FOREIGN KEY (customer_id) REFERENCES [dbo].[customers](id));'
+  );
+  assert('TC-11B schema-qualified 資料表數量', schemaTableResult.length, 2);
+  assert('TC-11B 第一張表名稱', schemaTableResult[0].tableName, 'dbo.customers');
+  assert('TC-11B 第二張表名稱', schemaTableResult[1].tableName, 'dbo.orders');
+  assert('TC-11B FK 參照 schema-qualified 表名', schemaTableResult[1].foreignKeys[0].refTable, 'dbo.customers');
+
   // TC-12：DEFAULT 簡單字面值（數字、字串）
   assert(
     'TC-12 DEFAULT 簡單值',

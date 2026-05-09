@@ -29,7 +29,7 @@ echo  [OK] tailwind.css generated.
 echo.
 
 echo [2/2] Bundling prism.html...
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build.ps1"
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build.ps1" < NUL
 if errorlevel 1 (
     echo  [ERROR] Build failed. Make sure PowerShell 7 (pwsh) is installed.
     pause
