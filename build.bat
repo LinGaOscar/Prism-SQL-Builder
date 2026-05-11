@@ -19,7 +19,7 @@ if not exist "tailwindcss.exe" (
     exit /b 1
 )
 
-tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
+tailwindcss.exe -i ./storage/input.css -o ./storage/tailwind.css --minify
 if errorlevel 1 (
     echo  [ERROR] Tailwind CSS generation failed.
     pause

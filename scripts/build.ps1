@@ -1,6 +1,6 @@
 # scripts/build.ps1
 # 離線打包腳本：將所有依賴 inline 進單一 prism.html
-# 執行前需先產生 tailwind.css：./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
+# 執行前需先產生 tailwind.css：./tailwindcss.exe -i ./storage/input.css -o ./storage/tailwind.css --minify
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -18,7 +18,7 @@ if (!(Test-Path $vueFile)) {
 }
 
 # ── 2. 讀取各資源 ──────────────────────────────────────────
-$tailwindCss = [System.IO.File]::ReadAllText((Join-Path $root 'tailwind.css'), [System.Text.Encoding]::UTF8)
+$tailwindCss = [System.IO.File]::ReadAllText((Join-Path $root 'storage/tailwind.css'), [System.Text.Encoding]::UTF8)
 $vueJs       = [System.IO.File]::ReadAllText($vueFile, [System.Text.Encoding]::UTF8)
 
 # src/ 模組合併順序（依 index.html 的 script 載入順序）

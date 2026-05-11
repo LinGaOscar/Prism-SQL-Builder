@@ -13,11 +13,30 @@
   font-feature-settings: "liga" 1, "calt" 1;
 }
 
-/* 細滾動條 */
+/* 全域細滾動條 */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 99px; }
 .dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+
+/* 自定義區域滾動條 (用於 index.html 內的特定區塊) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e4e4e7;
+  border-radius: 10px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
 
 /* focus ring */
 :focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 3px; }

@@ -40,12 +40,12 @@ window.SortLimitPanelComponent = {
              class="flex items-center gap-2 mb-2">
           <select :value="sort.column"
                   @change="updateSort(idx, 'column', $event.target.value)"
-                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1">
+                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1 min-w-0">
             <option v-for="col in columns" :key="col.name" :value="col.name">{{ col.name }}</option>
           </select>
           <select :value="sort.direction"
                   @change="updateSort(idx, 'direction', $event.target.value)"
-                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors">
+                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors shrink-0">
             <option value="ASC">ASC</option>
             <option value="DESC">DESC</option>
           </select>

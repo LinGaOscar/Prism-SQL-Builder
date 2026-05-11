@@ -79,22 +79,23 @@ window.JoinBuilderComponent = {
         <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">JOIN 列表</div>
         <div v-if="joins.length === 0" class="text-zinc-400 dark:text-zinc-600 text-xs">尚未加入任何 JOIN</div>
         <div v-for="(j, idx) in joins" :key="idx"
-             class="flex items-center gap-2 mb-2 p-2 rounded-md bg-white dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 w-full overflow-x-auto whitespace-nowrap">
+             class="flex flex-wrap items-center gap-2 mb-2 p-2 rounded-md bg-white dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 w-full">
           <!-- JOIN 類型選擇 -->
           <select :value="j.type" @change="updateJoinType(idx, $event.target.value)"
                   class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors shrink-0">
             <option v-for="t in JOIN_TYPES" :key="t" :value="t">{{ t }}</option>
           </select>
           <span class="text-zinc-500 dark:text-zinc-400 text-xs font-medium shrink-0">JOIN <span class="text-zinc-800 dark:text-zinc-200">{{ j.toTable }}</span> ON</span>
-          <!-- fromCol：FK 推薦時自動填入，手動新增時留空 -->
-          <input :value="j.fromCol" @input="updateJoinCol(idx, 'fromCol', $event.target.value)"
-                 :placeholder="j.fromTable + '.col'"
-                 class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-28 shrink-0" />
-          <span class="text-zinc-400 dark:text-zinc-500 text-xs shrink-0">=</span>
-          <!-- toCol -->
-          <input :value="j.toCol" @input="updateJoinCol(idx, 'toCol', $event.target.value)"
-                 :placeholder="j.toTable + '.col'"
-                 class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-28 shrink-0" />
+          <!-- ON 條件：fromCol = toCol，包成一組避免 = 號跨行斷開 -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <input :value="j.fromCol" @input="updateJoinCol(idx, 'fromCol', $event.target.value)"
+                   :placeholder="j.fromTable + '.col'"
+                   class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-28 shrink-0" />
+            <span class="text-zinc-400 dark:text-zinc-500 text-xs shrink-0">=</span>
+            <input :value="j.toCol" @input="updateJoinCol(idx, 'toCol', $event.target.value)"
+                   :placeholder="j.toTable + '.col'"
+                   class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-28 shrink-0" />
+          </div>
           <button @click="removeJoin(idx)"
                   class="text-zinc-300 dark:text-zinc-600 hover:text-red-500 text-xs px-2 ml-auto shrink-0 transition-colors">✕</button>
         </div>

@@ -48,13 +48,13 @@ window.ConditionBuilderComponent = {
         <!-- 欄位選擇 -->
         <select :value="cond.column"
                 @change="updateCondition(idx, 'column', $event.target.value)"
-                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1">
+                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1 min-w-0">
           <option v-for="col in columns" :key="col.name" :value="col.name">{{ col.name }}</option>
         </select>
         <!-- 運算子 -->
         <select :value="cond.operator"
                 @change="updateCondition(idx, 'operator', $event.target.value)"
-                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors">
+                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors shrink-0">
           <option v-for="op in OPERATORS" :key="op" :value="op">{{ op }}</option>
         </select>
         <!-- 值輸入（IS NULL / IS NOT NULL 不顯示，這兩個運算子語義上不需要值） -->
@@ -62,7 +62,7 @@ window.ConditionBuilderComponent = {
                :value="cond.value"
                @input="updateCondition(idx, 'value', $event.target.value)"
                placeholder="值"
-               class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1" />
+               class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1 min-w-0" />
         <span v-else class="flex-1"></span>
         <!-- 刪除條件 -->
         <button @click="removeCondition(idx)"

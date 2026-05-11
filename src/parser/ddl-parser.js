@@ -342,10 +342,11 @@
     }
 
     // 處理外部的 ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY
-    const alterPkRe = /ALTER\s+TABLE\s+([^\s]+(?:[\s\S]*?)?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/gi;
+    const alterPkRe = /ALTER\s+TABLE\s+([\s\S]+?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?PRIMARY\s+KEY\s*\(([\s\S]+?)\)/gi;
     let pkMatch;
     while ((pkMatch = alterPkRe.exec(sql)) !== null) {
-      const parsedTableName = parseQualifiedIdentifier(pkMatch[1].trim());
+      const tableNameRaw = pkMatch[1].trim();
+      const parsedTableName = parseQualifiedIdentifier(tableNameRaw);
       const tableName = parsedTableName.name;
       const targetTable = tables.find(t => t.tableName === tableName);
       if (targetTable) {
@@ -358,10 +359,11 @@
     }
 
     // 處理外部的 ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY
-    const alterFkRe = /ALTER\s+TABLE\s+([^\s]+(?:[\s\S]*?)?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)\s*REFERENCES\s+((?:[`"\[]?[\w]+[`"\]]?\s*\.\s*)?[`"\[]?[\w]+[`"\]]?)\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)/gi;
+    const alterFkRe = /ALTER\s+TABLE\s+([\s\S]+?)\s+ADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)\s*REFERENCES\s+((?:[`"\[]?[\w]+[`"\]]?\s*\.\s*)?[`"\[]?[\w]+[`"\]]?)\s*\(\s*([`"\[]?[\w]+[`"\]]?)\s*\)/gi;
     let fkMatch;
     while ((fkMatch = alterFkRe.exec(sql)) !== null) {
-      const parsedTableName = parseQualifiedIdentifier(fkMatch[1].trim());
+      const tableNameRaw = fkMatch[1].trim();
+      const parsedTableName = parseQualifiedIdentifier(tableNameRaw);
       const tableName = parsedTableName.name;
       const targetTable = tables.find(t => t.tableName === tableName);
       if (targetTable) {

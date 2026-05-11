@@ -76,7 +76,7 @@ window.SqlPreviewComponent = {
           {{ copyLabel }}
         </button>
       </div>
-      <pre class="flex-1 bg-[#FAFAF7] dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-code text-emerald-800 dark:text-emerald-400 overflow-auto whitespace-pre-wrap leading-relaxed">{{ displaySql || '-- 請選擇資料表與欄位' }}</pre>
+      <pre name="sql-preview" class="flex-1 bg-[#FAFAF7] dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-code text-emerald-800 dark:text-emerald-400 overflow-auto whitespace-pre-wrap leading-relaxed custom-scrollbar" style="max-height: max(200px, calc(100vh - 680px));">{{ displaySql || '-- 請選擇資料表與欄位' }}</pre>
     </div>
   `
 }

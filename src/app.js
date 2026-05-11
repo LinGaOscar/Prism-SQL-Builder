@@ -44,7 +44,8 @@
       const schemaName  = ref('prism-schema') // 儲存的檔名（不含副檔名）
 
       // 開始畫面：未主動進入 app 且尚無任何 DDL 時顯示
-      const started = ref(false)
+      const started  = ref(false)
+      const skipMode = ref(false)   // 使用者選擇「試試看」時設為 true，阻止 onMounted 非同步還原 saveDir
       const showStart = computed(() => !started.value && !rawDdl.value.trim())
 
       // Phase 8 新增：方言切換與多組儲存查詢
@@ -228,10 +229,11 @@
         if (isDark.value) document.documentElement.classList.add('dark')
         else document.documentElement.classList.remove('dark')
 
-        // 從 IndexedDB 還原上次的儲存目錄（讓「繼續使用上次目錄」按鈕可顯示目錄名稱）
+        // 從 IndexedDB 還原上次的儲存目錄
+        // 必須在 await 後再次確認 skipMode，因為使用者可能在 await 期間點了「先試試看」
         try {
           const handle = await window.idbHandles.loadDirHandle()
-          if (handle) {
+          if (handle && !skipMode.value) {
             saveDir.value = handle
             saveDirName.value = handle.name
           }
@@ -349,21 +351,12 @@
         }
       }
 
-      // 「先試試看」：跳過開始畫面，不設定儲存位置直接進入 app
-      function skipStart() { started.value = true }
-
-      // 已有記憶目錄 → 驗證權限後直接進入 app（不需重新選擇）
-      async function startWithDir() {
-        try {
-          const perm = await window.fsStorage.verifyDirPermission(saveDir.value)
-          if (perm === 'granted') {
-            started.value = true
-          } else {
-            alert('需要重新授權目錄存取權限')
-          }
-        } catch (e) {
-          alert('目錄存取失敗：' + e.message)
-        }
+      // 「先試試看」：標記 skipMode 防止 onMounted async 還原 saveDir，並清除當前 session 儲存位置
+      function skipStart() {
+        skipMode.value = true
+        saveDir.value = null
+        saveDirName.value = ''
+        started.value = true
       }
 
       // 將目前查詢狀態存入 savedQueries
@@ -457,7 +450,7 @@
         saveCurrentQuery, loadQuery, deleteQuery,
         addToHistory, clearHistory, formatHistoryTime,
         pickSaveDir, clearSaveDir,
-        skipStart, startWithDir,
+        skipStart,
         isDark, toggleTheme
       }
     },
@@ -500,17 +493,13 @@
                 </div>
               </button>
 
-              <!-- 指定目錄新建（已有目錄時顯示目錄名稱） -->
-              <button @click="saveDirName ? startWithDir() : pickSaveDir()"
+              <!-- 指定目錄新建 -->
+              <button @click="pickSaveDir()"
                       class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
                 <div class="flex items-center justify-between">
                   <div>
-                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {{ saveDirName ? '繼續使用上次目錄' : '選擇儲存位置' }}
-                    </div>
-                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      {{ saveDirName ? saveDirName : '指定資料夾，新建 Schema' }}
-                    </div>
+                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">選擇儲存位置</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">指定資料夾，新建 Schema</div>
                   </div>
                   <span class="text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-400 transition-colors text-lg">→</span>
                 </div>
@@ -555,6 +544,11 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <!-- 已載入的資料表數量：放在方言選單左邊，讓使用者快速掌握目前 schema 規模 -->
+            <span v-if="tables.length > 0"
+                  class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 tabular-nums">
+              {{ tables.length }} 張資料表
+            </span>
             <!-- 方言選擇器：影響分頁語法（LIMIT vs OFFSET...FETCH） -->
             <select v-model="dialect"
                     class="text-xs px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer">
@@ -612,28 +606,15 @@
                 匯出
               </button>
             </template>
+            <!-- DDL 匯入/追加：移至此處，緊接在儲存按鈕右側 -->
+            <label class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+              {{ tables.length > 0 ? '追加 .sql' : '匯入 .sql' }}
+              <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
+            </label>
+            <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
             <span v-if="saveStatus" class="text-xs text-green-700 dark:text-green-400">{{ saveStatus }}</span>
           </div>
         </header>
-
-        <!-- DDL 匯入列 -->
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
-          <div class="flex items-center justify-between px-4 py-2.5">
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">DDL</span>
-              <span v-if="tables.length > 0" class="text-[11px] text-zinc-400 dark:text-zinc-500">
-                · {{ tables.length }} 張資料表
-              </span>
-            </div>
-            <div class="flex items-center gap-2">
-              <label class="text-xs px-3 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
-                {{ tables.length > 0 ? '追加 .sql' : '匯入 .sql' }}
-                <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
-              </label>
-              <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
-            </div>
-          </div>
-        </div>
 
         <!-- Tab 切換列（選了 table 才顯示） -->
         <div v-if="tables.length > 0" class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
@@ -686,16 +667,10 @@
             </div>
           </div>
 
-          <!-- JOIN 模式開關（選了 table 才顯示） -->
-          <div class="flex items-center gap-3 mb-4" v-if="selectedTable">
-            <label class="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer select-none hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
-              <input type="checkbox" v-model="joinMode" class="accent-indigo-500 cursor-pointer" />
-              啟用 JOIN 多表查詢
-            </label>
-          </div>
+          <!-- 主工作區：左欄 Table/Column，右欄 SQL 預覽 + 所有條件設定 -->
+          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6 items-start">
 
-          <!-- 主工作區：Table 選擇 + SQL 預覽 -->
-          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6" style="min-height:420px">
+            <!-- 左欄：資料表清單 + 欄位勾選 -->
             <TablePanel
               :tables="tables"
               :selected-table="selectedTable"
@@ -705,35 +680,51 @@
               @select-table="setSelectedTable"
               @update-columns="setSelectedColumns"
             />
-            <SqlPreview :sql="sqlOutput" @copy="addToHistory" />
-          </div>
 
-          <!-- 條件設定區（選了 table 才顯示） -->
-          <div v-if="selectedTable" class="grid grid-cols-2 gap-6 mt-6">
-            <!-- JOIN 設定：跨越兩欄，只在 JOIN 模式下顯示 -->
-            <div v-if="joinMode && selectedTable" class="col-span-2">
-              <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">JOIN 設定</div>
-              <JoinBuilder
-                :tables="tables"
-                :base-table="selectedTable"
-                :joins="joins"
-                @update-joins="joins = $event"
-              />
+            <!-- 右欄：SQL 預覽 + JOIN 開關 + 所有查詢條件 -->
+            <div class="flex flex-col gap-5">
+              <!-- SQL 即時預覽 -->
+              <SqlPreview :sql="sqlOutput" @copy="addToHistory" />
+
+              <!-- 以下僅在選定資料表後顯示 -->
+              <template v-if="selectedTable">
+                <!-- JOIN 模式開關 -->
+                <label class="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer select-none hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors w-fit">
+                  <input type="checkbox" v-model="joinMode" class="accent-indigo-500 cursor-pointer" />
+                  啟用 JOIN 多表查詢
+                </label>
+
+                <!-- JOIN 設定（JOIN 模式開啟後顯示） -->
+                <div v-if="joinMode">
+                  <div class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">JOIN 設定</div>
+                  <JoinBuilder
+                    :tables="tables"
+                    :base-table="selectedTable"
+                    :joins="joins"
+                    @update-joins="joins = $event"
+                  />
+                </div>
+
+                <!-- WHERE 條件 + 排序與分頁 -->
+                <div :class="['grid gap-4', joinMode ? 'grid-cols-1' : 'grid-cols-2']">
+                  <ConditionBuilder
+                    :columns="joinMode && joins.length > 0 ? joinColumns.map(c => ({ name: c.table + '.' + c.column })) : currentTableColumns"
+                    :where="where"
+                    @update-where="where = $event"
+                  />
+                  <SortLimitPanel
+                    :columns="joinMode && joins.length > 0 ? joinColumns.map(c => ({ name: c.table + '.' + c.column })) : currentTableColumns"
+                    :order-by="orderBy"
+                    :limit="limit"
+                    :offset="offset"
+                    @update-order-by="orderBy = $event"
+                    @update-limit="limit = $event"
+                    @update-offset="offset = $event"
+                  />
+                </div>
+              </template>
             </div>
-            <ConditionBuilder
-              :columns="currentTableColumns"
-              :where="where"
-              @update-where="where = $event"
-            />
-            <SortLimitPanel
-              :columns="currentTableColumns"
-              :order-by="orderBy"
-              :limit="limit"
-              :offset="offset"
-              @update-order-by="orderBy = $event"
-              @update-limit="limit = $event"
-              @update-offset="offset = $event"
-            />
+
           </div>
         </div>
 
