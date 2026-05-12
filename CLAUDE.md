@@ -23,15 +23,23 @@ npx serve .
 
 ### Tailwind CSS（獨立執行檔）
 
+Tailwind CSS 輸入：`storage/input.css`，輸出：`storage/tailwind.css`。
+
 ```powershell
-# 首次：下載獨立執行檔（存放於專案根目錄，已加入 .gitignore）
+# Windows：下載獨立執行檔（存放於專案根目錄，已加入 .gitignore）
 Invoke-WebRequest -Uri 'https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe' -OutFile tailwindcss.exe
 
+# macOS（Apple Silicon）
+curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-arm64 -o tailwindcss && chmod +x tailwindcss
+
+# macOS（Intel）
+curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-x64 -o tailwindcss && chmod +x tailwindcss
+
 # 每次新增 Tailwind class 後重新產生
-./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
+./tailwindcss -i ./storage/input.css -o ./storage/tailwind.css --minify
 
 # 開發期間持續監聽
-./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --watch
+./tailwindcss -i ./storage/input.css -o ./storage/tailwind.css --watch
 ```
 
 ### 建置指令
@@ -40,15 +48,19 @@ Invoke-WebRequest -Uri 'https://github.com/tailwindlabs/tailwindcss/releases/lat
 # Windows（Tailwind + 打包一次完成）
 build.bat
 
-# 或分步執行
-./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
+# 或分步執行（Windows）
+./tailwindcss.exe -i ./storage/input.css -o ./storage/tailwind.css --minify
+pwsh ./scripts/build.ps1
+
+# macOS 分步執行
+./tailwindcss -i ./storage/input.css -o ./storage/tailwind.css --minify
 pwsh ./scripts/build.ps1
 ```
 
 - **本地**：輸出至 `prism.html`
 - **CI（GitHub Actions）**：輸出至 `dist/index.html`，自動部署至 GitHub Pages
 
-`vendor/`、`prism.html`、`tailwind.css` 均為本地生成物，不 commit。
+`vendor/`、`prism.html`、`storage/tailwind.css` 均為本地生成物，不 commit。
 
 ### DDL Parser 測試
 
@@ -120,10 +132,11 @@ SQL 預覽區即時更新
 ### DDL Parser 設計
 
 - Regex + 狀態機解析 `CREATE TABLE`，支援 MySQL / PostgreSQL / MSSQL / Oracle
+- `window.parseDDL(sql)` 回傳 `TableSchema[]`；型別定義見 `src/parser/types.js`（`TableSchema`、`ColumnDef`、`ForeignKey`）
+- `window.detectDialect(sql)` 分析 SQL 關鍵字並回傳方言字串，由 `handleParse` / `handleAppend` 呼叫以自動切換 `dialect` ref
 - MSSQL schema-qualified 表名（`[dbo].[table]` 或 `dbo.table`）解析為 `schema.table` 格式；ALTER TABLE 語句同樣支援此格式
 - `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY / FOREIGN KEY` 語句在主 CREATE TABLE 解析完成後後處理，補回主鍵與外鍵關係
 - 追加模式：多個 `.sql` 檔可累加（依 tableName 去重，已存在的不覆蓋）
-- 匯入時自動偵測方言（Oracle / MSSQL 關鍵字）並切換 `dialect` ref
 - 無 textarea 輸入，**僅支援檔案匯入**
 
 ### SQL 方言支援
