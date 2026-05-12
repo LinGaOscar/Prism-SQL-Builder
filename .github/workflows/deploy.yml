@@ -3,6 +3,7 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 # GitHub Pages 部署所需權限
 permissions:
