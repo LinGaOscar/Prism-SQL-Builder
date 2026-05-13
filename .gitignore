@@ -10,3 +10,4 @@ dist/
 !CLAUDE.md
 !PLAN.md
 !doc/*.md
+.DS_Store
