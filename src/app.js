@@ -668,7 +668,7 @@
           </div>
 
           <!-- 主工作區：左欄 Table/Column，右欄 SQL 預覽 + 所有條件設定 -->
-          <div v-if="tables.length > 0" class="grid grid-cols-2 gap-6 items-start">
+          <div v-if="tables.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
             <!-- 左欄：資料表清單 + 欄位勾選 -->
             <TablePanel
@@ -741,7 +741,7 @@
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             <strong class="font-medium text-zinc-700 dark:text-zinc-300">💡 ERD 操作說明：</strong>此處顯示資料表的 Foreign Key 關聯圖。您可以拖曳畫面來檢視完整的結構，或直接<strong class="text-indigo-600 dark:text-indigo-400">點擊資料表方塊</strong>，系統會為您自動切換至該資料表的查詢與操作介面。
           </p>
-          <ErdPanel :tables="tables" :base-table="selectedTable" @select-table="setSelectedTable" />
+          <ErdPanel :tables="tables" :base-table="selectedTable" @select-table="goToTable" />
         </div>
 
         <!-- Query History 頁籤內容：複製時自動記錄，最多 50 筆 -->
