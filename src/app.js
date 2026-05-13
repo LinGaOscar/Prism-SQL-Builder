@@ -36,9 +36,21 @@
       // Phase 5 新增：tab 切換，query = SELECT/JOIN 查詢，dml = DML 模板
       const activeTab = ref('query')
 
+      // Toast 浮動通知：居中淡出，取代 header 內嵌文字狀態
+      const toastMsg     = ref('')
+      const toastVisible = ref(false)
+      const toastType    = ref('success')  // 'success' | 'error' | 'warn'
+      let   toastTimer   = null
+      function showToast(msg, type = 'success') {
+        if (toastTimer) clearTimeout(toastTimer)
+        toastMsg.value     = msg
+        toastType.value    = type
+        toastVisible.value = true
+        toastTimer = setTimeout(() => { toastVisible.value = false }, 2200)
+      }
+
       // Phase 7 新增：儲存相關狀態
       const fileHandle = ref(null)         // FSA handle，儲存後持有，避免重複選檔
-      const saveStatus = ref('')           // 短暫顯示「已儲存」或「儲存失敗」
       const saveDir     = ref(null)        // FileSystemDirectoryHandle | null，指定預設儲存目錄
       const saveDirName = ref('')          // 顯示用的目錄名稱（handle.name）
       const schemaName  = ref('prism-schema') // 儲存的檔名（不含副檔名）
@@ -78,6 +90,7 @@
           where.value = []
           orderBy.value = []
           dialect.value = window.detectDialect(rawDdl.value)
+          showToast(`已載入 ${result.length} 張資料表`)
         } catch (e) {
           parseError.value = '解析失敗：' + e.message
         }
@@ -110,6 +123,7 @@
           }
           rawDdl.value = [rawDdl.value.trim(), nextDdl.trim()].filter(Boolean).join('\n\n')
           dialect.value = window.detectDialect(nextDdl)
+          showToast(`已追加 ${newTables.length} 張資料表`)
         } catch (e) {
           parseError.value = '解析失敗：' + e.message
         }
@@ -260,8 +274,7 @@
             // 目錄模式：直接寫入指定資料夾，避免每次跳出儲存對話框
             const perm = await window.fsStorage.verifyDirPermission(saveDir.value)
             if (perm !== 'granted') {
-              saveStatus.value = '需要資料夾存取權限'
-              setTimeout(() => { saveStatus.value = '' }, 3000)
+              showToast('需要資料夾存取權限', 'warn')
               return
             }
             await window.fsStorage.saveToDirectory(saveDir.value, filename, content)
@@ -270,11 +283,9 @@
           } else {
             fileHandle.value = await window.fsStorage.saveAsFile(content, filename)
           }
-          saveStatus.value = '已儲存'
-          setTimeout(() => { saveStatus.value = '' }, 2000)
+          showToast('已儲存 ✓')
         } catch (e) {
-          if (e.name !== 'AbortError') saveStatus.value = '儲存失敗'
-          setTimeout(() => { saveStatus.value = '' }, 2000)
+          if (e.name !== 'AbortError') showToast('儲存失敗', 'error')
         }
       }
 
@@ -436,7 +447,7 @@
         currentTableColumns, currentTable,
         joins, joinMode, joinColumns,
         activeTab,
-        fileHandle, saveStatus,
+        fileHandle, toastMsg, toastVisible, toastType,
         saveDir, saveDirName, schemaName,
         fsSupported: window.fsStorage.isSupported,
         dialect, savedQueries, saveQueryName,
@@ -456,6 +467,17 @@
     },
     template: `
       <div class="min-h-screen bg-zinc-50 dark:bg-[#111111]">
+
+        <!-- Toast 浮動通知：fixed 居中，淡入後慢慢消失 -->
+        <div class="fixed inset-0 flex items-end justify-center pb-10 pointer-events-none z-[60]">
+          <div :class="['px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium transition-all duration-500',
+                        toastVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+                        toastType === 'error' ? 'bg-red-500 text-white' :
+                        toastType === 'warn'  ? 'bg-amber-500 text-white' :
+                                                'bg-zinc-800 dark:bg-zinc-600 text-white']">
+            {{ toastMsg }}
+          </div>
+        </div>
 
         <!-- 開始畫面：尚未載入任何 Schema 時顯示，強制使用者明確選擇工作模式 -->
         <div v-if="showStart"
@@ -558,10 +580,10 @@
               <option value="oracle">Oracle</option>
             </select>
             <!-- 深色/淺色模式切換按鈕 -->
+            <!-- 主題切換：顯示「目前狀態」文字，點擊切換至另一模式 -->
             <button @click="toggleTheme"
-                    class="w-8 h-8 flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-sm"
-                    :title="isDark ? '切換淺色模式' : '切換深色模式'">
-              {{ isDark ? '☀' : '🌙' }}
+                    class="px-3 h-8 flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              {{ isDark ? 'Dark' : 'Light' }}
             </button>
             <!-- 儲存位置設定：讓使用者指定預設資料夾，避免每次另存都要手動選路徑 -->
             <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-xs">
@@ -612,7 +634,6 @@
               <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
             </label>
             <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
-            <span v-if="saveStatus" class="text-xs text-green-700 dark:text-green-400">{{ saveStatus }}</span>
           </div>
         </header>
 
