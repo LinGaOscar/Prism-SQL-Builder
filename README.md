@@ -71,6 +71,33 @@ Rename-Item tailwindcss-windows-x64.exe tailwindcss.exe
 
 ---
 
+## CI / CD 部署
+
+每次推送至 `main` branch，GitHub Actions 自動建置並部署至 GitHub Pages。
+
+### 執行者
+
+由 **GitHub 雲端 Runner**（`ubuntu-latest` 虛擬機）負責執行，每次都是全新乾淨環境，跑完即銷毀。
+
+### 為什麼能執行 `build.ps1`？
+
+GitHub 的 `ubuntu-latest` Runner **預裝了 PowerShell Core（`pwsh`）**，可直接跑跨平台 `.ps1` 腳本，無需額外安裝。
+
+### 執行流程
+
+```
+git push → GitHub 偵測 main 有新 commit
+  → 分配 ubuntu-latest 虛擬機
+    → checkout repo
+      → 下載 tailwindcss 執行檔
+        → 產生 tailwind.css
+          → pwsh build.ps1 → dist/index.html
+            → 上傳 artifact → 部署至 GitHub Pages
+              → 虛擬機銷毀
+```
+
+---
+
 ## 資料儲存
 
 App 啟動時顯示開始畫面，需主動選擇：
