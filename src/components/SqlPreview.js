@@ -49,10 +49,14 @@ window.SqlPreviewComponent = {
 
     async function copySql() {
       if (!displaySql.value) return
-      await navigator.clipboard.writeText(displaySql.value)
-      copyLabel.value = '已複製！'
+      try {
+        await navigator.clipboard.writeText(displaySql.value)
+        copyLabel.value = '已複製！'
+        emit('copy')
+      } catch {
+        copyLabel.value = '複製失敗'
+      }
       setTimeout(() => { copyLabel.value = '複製' }, 1500)
-      emit('copy')
     }
 
     return { copyLabel, copySql, pretty, displaySql }

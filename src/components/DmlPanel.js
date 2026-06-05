@@ -24,8 +24,12 @@ window.DmlPanelComponent = {
     // 複製 SQL 到剪貼簿，並短暫顯示「已複製！」提示
     async function copySql() {
       if (!sql.value) return
-      await navigator.clipboard.writeText(sql.value)
-      copyLabel.value = '已複製！'
+      try {
+        await navigator.clipboard.writeText(sql.value)
+        copyLabel.value = '已複製！'
+      } catch {
+        copyLabel.value = '複製失敗'
+      }
       setTimeout(() => { copyLabel.value = '複製' }, 1500)
     }
 

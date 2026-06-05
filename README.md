@@ -1,20 +1,20 @@
 # Prism SQL Builder
 
-離線 SQL Query Builder。用 Chrome / Edge 開啟單一 `prism.html`，貼入或匯入 DDL，視覺化選欄並即時產生 SQL。
+離線 SQL Query Builder。用 Chrome / Edge 開啟 `index.html`，匯入 DDL，視覺化選欄並即時產生 SQL。
 
 **[線上試用 →](https://lingaoscar.github.io/Prism-SQL-Builder/)**
 
-[![Build & Deploy](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml/badge.svg)](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml)
+[![Deploy](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml/badge.svg)](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml)
 
 ---
 
 ## 特色
 
-- **零安裝、零依賴**：單一 HTML 檔，複製即用
+- **零安裝、零建置**：clone 後直接開啟 `index.html`，無需任何編譯步驟
 - **完全離線**：所有邏輯在瀏覽器本地執行，資料不外傳
 - **多方言支援**：MySQL / PostgreSQL / MSSQL / Oracle
 - **檔案式儲存**：以 `.md` 保存 DDL 與查詢設定，適合搬移與版控
-- **深淺色模式**：預設淺色，可切換深色
+- **深淺色模式**：可切換深色 / 淺色
 
 ---
 
@@ -22,11 +22,11 @@
 
 | 功能 | 說明 |
 |------|------|
-| DDL 解析 | 支援 MySQL / PostgreSQL / MSSQL 常見 `CREATE TABLE`，含 `[bracket]` 與 `schema.table` |
+| DDL 解析 | 支援 MySQL / PostgreSQL / MSSQL / Oracle `CREATE TABLE`，含 `[bracket]` 與 `schema.table` |
 | SELECT 查詢 | 欄位勾選、WHERE 條件、ORDER BY、LIMIT / OFFSET |
 | JOIN 查詢 | FK 自動推薦、INNER / LEFT / RIGHT JOIN、欄位衝突自動加 `table.column` 前綴 |
 | DML 模板 | INSERT / UPDATE / DELETE，支援 named（`:col`）與 positional（`?`）佔位符 |
-| ERD 關聯圖 | Mermaid.js 自動繪製，點擊節點跳至查詢設定 |
+| ERD 關聯圖 | 自製 SVG 渲染器，點擊節點跳至查詢設定 |
 | 查詢管理 | 同一 Schema 下可儲存多組查詢，命名後一鍵還原 |
 
 ---
@@ -35,66 +35,17 @@
 
 ### 支援環境
 
-目前僅支援 Chrome / Edge。App 啟動時會阻擋其他瀏覽器，因核心儲存流程依賴 File System Access API。
+建議使用 **Chrome 或 Edge**（File System Access API 所需）。其他瀏覽器可正常使用，但儲存功能降級為手動匯入/匯出 `.md` 檔。
 
-### 開發
+### 開啟方式
 
-```
-# 直接用 Chrome / Edge 開啟（需先產生 tailwind.css）
-./tailwindcss.exe -i ./src/input.css -o ./tailwind.css --minify
-start index.html
-```
-
-開發版 `index.html` 仍使用外部 Vue / Mermaid CDN；離線使用請打包成 `prism.html`。
-
-### 打包為離線單檔
-
-雙擊 `build.bat`，自動產生 `prism.html`（目前約 3.28 MB，含所有依賴）。
-
-**前置條件（首次）：**
-
-```powershell
-# 下載 Tailwind CSS 獨立執行檔（123 MB，存於專案根目錄）
-curl -LO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe
-Rename-Item tailwindcss-windows-x64.exe tailwindcss.exe
+```bash
+# clone 後，用 VS Code Live Server 或任意 HTTP 伺服器開啟
+npx serve .
+# 接著用 Chrome / Edge 開啟 http://localhost:3000
 ```
 
-> PowerShell 7（`pwsh`）需已安裝。
-
-打包流程會：
-
-1. 用 `tailwindcss.exe` 產生 `tailwind.css`
-2. 由 `scripts/build.ps1` inline `tailwind.css`、Vue、Mermaid、所有 `src` 模組
-3. 輸出 `prism.html`
-
-`prism.html`、`tailwind.css`、`vendor/` 都是本地生成物，不需要 commit。
-
----
-
-## CI / CD 部署
-
-每次推送至 `main` branch，GitHub Actions 自動建置並部署至 GitHub Pages。
-
-### 執行者
-
-由 **GitHub 雲端 Runner**（`ubuntu-latest` 虛擬機）負責執行，每次都是全新乾淨環境，跑完即銷毀。
-
-### 為什麼能執行 `build.ps1`？
-
-GitHub 的 `ubuntu-latest` Runner **預裝了 PowerShell Core（`pwsh`）**，可直接跑跨平台 `.ps1` 腳本，無需額外安裝。
-
-### 執行流程
-
-```
-git push → GitHub 偵測 main 有新 commit
-  → 分配 ubuntu-latest 虛擬機
-    → checkout repo
-      → 下載 tailwindcss 執行檔
-        → 產生 tailwind.css
-          → pwsh build.ps1 → dist/index.html
-            → 上傳 artifact → 部署至 GitHub Pages
-              → 虛擬機銷毀
-```
+> 直接雙擊 `index.html`（`file://` 協定）無法使用 File System Access API。需透過 HTTP 伺服器開啟。
 
 ---
 
@@ -138,84 +89,35 @@ CREATE TABLE [dbo].[orders] (
 - `schema.table` / `[schema].[table]`
 - 行內與表級 `PRIMARY KEY`
 - 表級 `FOREIGN KEY`
+- `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY / FOREIGN KEY`
 - `AUTO_INCREMENT`、`SERIAL`
 - `DEFAULT (...)`
 - 跳過 `UNIQUE`、`INDEX`、`KEY` 表級定義
-
-Parser 測試目前為 `19 PASS / 0 FAIL`。
-
----
-
-## 流程架構
-
-### 使用者流程
-
-```mermaid
-flowchart TD
-    A([開啟 App]) --> B{開始畫面}
-    B --> C[開啟 .md 檔]
-    B --> D[選擇儲存資料夾]
-    B --> E[先試試看]
-
-    C --> F[還原 Schema + 查詢設定]
-    D --> G[新建 Schema]
-    E --> G
-
-    F --> H[主工作區]
-    G --> H
-
-    H --> I[貼入 DDL → 解析]
-    I --> J{功能頁籤}
-    J --> K[SELECT / JOIN 查詢]
-    J --> L[DML 模板]
-    J --> M[ERD 關聯圖]
-
-    K --> N[即時 SQL 輸出]
-    L --> N
-    N --> O[複製到剪貼簿]
-
-    H --> P{儲存}
-    P --> Q[覆寫 .md 檔]
-    P --> R[寫入指定目錄]
-    P --> S[匯出下載]
-```
-
-### 程式碼架構
-
-```mermaid
-flowchart LR
-    DDL["DDL 輸入"] --> Parser["DDL Parser\nRegex + 狀態機"]
-    Parser --> Schema["TableSchema[]"]
-
-    Schema --> Vue["Vue 3 App\n響應式狀態"]
-
-    Vue --> SB["Select Builder\nSELECT / WHERE\nORDER / LIMIT"]
-    Vue --> JB["Join Builder\nFK 推薦 / Alias"]
-    Vue --> DB["DML Builder\nINSERT / UPDATE / DELETE"]
-    Vue --> ERD["ERD Panel\nMermaid.js"]
-
-    SB --> SQL["SQL 輸出"]
-    JB --> SQL
-    DB --> SQL
-
-    Vue --> FS["Storage\nFile System API\nIndexedDB\n.md 格式"]
-```
 
 ---
 
 ## 專案結構
 
 ```
+index.html          # 主入口，直接開啟即可用
+vendor/
+  vue.global.js     # Vue 3（已 commit，無需下載）
+storage/
+  input.css         # Tailwind 原始輸入（@import tailwindcss）
+  tailwind.css      # 已產生並 commit，無需重新產生
 src/
-  parser/     # DDL Parser（Regex + 狀態機）
-  builder/    # SQL Builder（SELECT / JOIN / DML）
-  storage/    # File System API / IndexedDB / .md 格式
-  components/ # Vue 3 元件
-  app.js      # 應用程式入口
-scripts/
-  build.ps1   # 離線打包腳本
-build.bat     # 一鍵打包（雙擊執行）
+  parser/           # DDL Parser（Regex + 狀態機）
+  builder/          # SQL Builder（SELECT / JOIN / DML）
+  storage/          # File System API / IndexedDB / .md 格式
+  components/       # Vue 3 元件
+  app.js            # 應用程式入口
 ```
+
+---
+
+## CI / CD
+
+push 至 `main` branch，GitHub Actions 直接部署整個目錄至 GitHub Pages，無建置步驟。
 
 ---
 
@@ -223,15 +125,14 @@ build.bat     # 一鍵打包（雙擊執行）
 
 | 用途 | 技術 |
 |------|------|
-| UI 框架 | Vue 3（CDN，發布時 inline） |
-| 樣式 | Tailwind CSS v4（獨立執行檔，不需 npm） |
-| ERD 圖表 | Mermaid.js（CDN，發布時 inline） |
-| DDL 解析 | 自製 Parser |
+| UI 框架 | Vue 3（`vendor/vue.global.js`，已 commit） |
+| 樣式 | Tailwind CSS v4（`storage/tailwind.css`，已 commit） |
+| ERD 圖表 | 自製輕量 SVG 渲染器（`src/components/ErdPanel.js`） |
+| DDL 解析 | 自製 Parser（Regex + 狀態機） |
 
 ---
 
 ## 已知限制
 
-- 僅支援 Chrome / Edge。
-- `prism.html` 目前約 3.28 MB；若要壓到 3 MB 以下，需要另做 Mermaid 或 vendor 壓縮策略。
+- File System Access API 需要 Chrome / Edge；其他瀏覽器降級為手動匯入/匯出。
 - DDL parser 以常見 `CREATE TABLE` 為主，非標準或高度方言化語法可能需要先簡化後匯入。

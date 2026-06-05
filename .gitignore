@@ -1,7 +1,6 @@
 node_modules/
 *.exe
-tailwind.css
-vendor/
+tailwindcss
 prism.html
 dist/
 .claude/

@@ -66,8 +66,13 @@
       const saveQueryName = ref('')        // 儲存查詢時的名稱輸入框
       const queryHistory = ref([])         // 複製時自動記錄，存 localStorage，最多 50 筆
 
-      // 深色/淺色模式切換
-      const isDark = ref(true)
+      const browserWarningDismissed = ref(false)
+
+      // 深色/淺色模式切換（預設讀 localStorage，避免 onMounted 前閃爍）
+      const _savedTheme = localStorage.getItem('prism_theme') || 'light'
+      const isDark = ref(_savedTheme === 'dark')
+      if (isDark.value) document.documentElement.classList.add('dark')
+      else document.documentElement.classList.remove('dark')
       function toggleTheme() {
         isDark.value = !isDark.value
         if (isDark.value) {
@@ -92,7 +97,7 @@
           dialect.value = window.detectDialect(rawDdl.value)
           showToast(`已載入 ${result.length} 張資料表`)
         } catch (e) {
-          parseError.value = '解析失敗：' + e.message
+          showToast('解析失敗：' + e.message, 'error')
         }
       }
 
@@ -106,14 +111,14 @@
         try {
           const result = window.parseDDL(nextDdl)
           if (result.length === 0) {
-            parseError.value = '追加失敗：檔案內沒有可解析的 CREATE TABLE'
+            showToast('追加失敗：檔案內沒有可解析的 CREATE TABLE', 'warn')
             return
           }
 
           const existingNames = new Set(tables.value.map(t => normalizeTableName(t.tableName)))
           const newTables = result.filter(t => !existingNames.has(normalizeTableName(t.tableName)))
           if (newTables.length === 0) {
-            parseError.value = '追加失敗：檔案內的資料表已存在'
+            showToast('追加失敗：資料表已存在', 'warn')
             return
           }
 
@@ -125,7 +130,7 @@
           dialect.value = window.detectDialect(nextDdl)
           showToast(`已追加 ${newTables.length} 張資料表`)
         } catch (e) {
-          parseError.value = '解析失敗：' + e.message
+          showToast('解析失敗：' + e.message, 'error')
         }
       }
 
@@ -237,12 +242,6 @@
         queryHistory.value = JSON.parse(localStorage.getItem('prism_query_history') || '[]')
           .map(h => h.selectedTable ? h : { ...h, selectedTable: h.tableName || '' })
 
-        // 還原主題偏好（主題偏好不屬於業務資料，允許用 localStorage 儲存）
-        const savedTheme = localStorage.getItem('prism_theme') || 'light'
-        isDark.value = savedTheme === 'dark'
-        if (isDark.value) document.documentElement.classList.add('dark')
-        else document.documentElement.classList.remove('dark')
-
         // 從 IndexedDB 還原上次的儲存目錄
         // 必須在 await 後再次確認 skipMode，因為使用者可能在 await 期間點了「先試試看」
         try {
@@ -298,7 +297,7 @@
           await window.idbHandles.saveDirHandle(handle)
           started.value = true
         } catch (e) {
-          if (e.name !== 'AbortError') alert('無法取得資料夾存取權限：' + e.message)
+          if (e.name !== 'AbortError') showToast('無法取得資料夾存取權限', 'error')
         }
       }
 
@@ -314,7 +313,7 @@
         try {
           const { handle, text } = await window.fsStorage.openFile()
           const state = window.mdFormat.deserialize(text)
-          if (!state) { alert('檔案格式不正確'); return }
+          if (!state) { showToast('檔案格式不正確', 'error'); return }
           fileHandle.value = handle
           rawDdl.value = state.rawDdl || ''
           dialect.value = state.dialect || 'mysql'
@@ -331,7 +330,7 @@
           }
           started.value = true
         } catch (e) {
-          if (e.name !== 'AbortError') alert('開啟失敗：' + e.message)
+          if (e.name !== 'AbortError') showToast('開啟失敗：' + e.message, 'error')
         }
       }
 
@@ -347,7 +346,7 @@
         if (!file) return
         const text = await file.text()
         const state = window.mdFormat.deserialize(text)
-        if (!state) { alert('檔案格式不正確'); return }
+        if (!state) { showToast('檔案格式不正確', 'error'); return }
         rawDdl.value = state.rawDdl || ''
         dialect.value = state.dialect || 'mysql'
         savedQueries.value = state.savedQueries || []
@@ -398,6 +397,7 @@
         offset.value = q.offset || 0
         joins.value = q.joins || []
         joinMode.value = q.joinMode || false
+        if (q.dialect) dialect.value = q.dialect
       }
 
       // 從 savedQueries 刪除指定索引的查詢
@@ -427,8 +427,18 @@
       }
 
       function clearHistory() {
+        if (!confirm('確定要清除所有歷史紀錄嗎？')) return
         queryHistory.value = []
         localStorage.removeItem('prism_query_history')
+      }
+
+      async function copyHistorySql(sql) {
+        try {
+          await navigator.clipboard.writeText(sql)
+          showToast('已複製')
+        } catch {
+          showToast('複製失敗，請手動複製', 'error')
+        }
       }
 
       // 時間戳轉為易讀格式，例如「今天 14:23」或「05/07 09:11」
@@ -442,7 +452,7 @@
 
       return {
         rawDdl, tables, selectedTable, selectedColumns,
-        parseError, sqlOutput,
+        sqlOutput,
         where, orderBy, limit, offset,
         currentTableColumns, currentTable,
         joins, joinMode, joinColumns,
@@ -450,6 +460,7 @@
         fileHandle, toastMsg, toastVisible, toastType,
         saveDir, saveDirName, schemaName,
         fsSupported: window.fsStorage.isSupported,
+        browserWarningDismissed,
         dialect, savedQueries, saveQueryName,
         queryHistory,
         started, showStart,
@@ -462,11 +473,24 @@
         addToHistory, clearHistory, formatHistoryTime,
         pickSaveDir, clearSaveDir,
         skipStart,
-        isDark, toggleTheme
+        isDark, toggleTheme,
+        copyHistorySql
       }
     },
     template: `
       <div class="min-h-screen bg-zinc-50 dark:bg-[#111111]">
+
+        <!-- 瀏覽器相容性警告：File System Access API 需要 Chrome / Edge -->
+        <div v-if="!fsSupported && !browserWarningDismissed"
+             class="fixed inset-x-0 top-0 z-[70] bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5 flex items-center justify-between gap-4">
+          <span class="text-xs text-amber-800 dark:text-amber-200">
+            建議使用 <strong>Chrome 或 Edge</strong> 以獲得完整儲存功能（File System Access API）。目前瀏覽器僅支援手動匯入/匯出。
+          </span>
+          <button @click="browserWarningDismissed = true"
+                  class="shrink-0 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+            知道了
+          </button>
+        </div>
 
         <!-- Toast 浮動通知：fixed 居中，淡入後慢慢消失 -->
         <div class="fixed inset-0 flex items-end justify-center pb-10 pointer-events-none z-[60]">
@@ -633,7 +657,6 @@
               {{ tables.length > 0 ? '追加 .sql' : '匯入 .sql' }}
               <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
             </label>
-            <span v-if="parseError" class="text-xs text-red-500">{{ parseError }}</span>
           </div>
         </header>
 
@@ -752,7 +775,7 @@
         <!-- DML 模板頁籤內容 -->
         <div v-show="activeTab === 'dml'" class="pt-4 flex flex-col gap-4">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            <strong class="font-medium text-zinc-700 dark:text-zinc-300">💡 DML 操作說明：</strong>選擇資料表後，切換上方「INSERT / UPDATE / DELETE」模式與「佔位符風格（:name 或 ?）」，系統會自動產生對應的 SQL 語法模板，您可以直接複製使用於您的後端程式碼中。
+            選擇資料表後，切換上方模式與佔位符風格，系統自動產生對應的 SQL 模板供後端使用。
           </p>
           <DmlPanel :table="currentTable" />
         </div>
@@ -760,7 +783,7 @@
         <!-- ERD 關聯圖頁籤內容 -->
         <div v-show="activeTab === 'erd'" class="pt-4 flex flex-col gap-4">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            <strong class="font-medium text-zinc-700 dark:text-zinc-300">💡 ERD 操作說明：</strong>此處顯示資料表的 Foreign Key 關聯圖。您可以拖曳畫面來檢視完整的結構，或直接<strong class="text-indigo-600 dark:text-indigo-400">點擊資料表方塊</strong>，系統會為您自動切換至該資料表的查詢與操作介面。
+            顯示 Foreign Key 關聯圖。<strong class="text-indigo-600 dark:text-indigo-400">點擊資料表方塊</strong>可切換至該資料表的查詢介面。
           </p>
           <ErdPanel :tables="tables" :base-table="selectedTable" @select-table="goToTable" />
         </div>
@@ -794,7 +817,7 @@
                           class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                     載入
                   </button>
-                  <button @click="navigator.clipboard.writeText(h.sql)"
+                  <button @click="copyHistorySql(h.sql)"
                           class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                     複製 SQL
                   </button>

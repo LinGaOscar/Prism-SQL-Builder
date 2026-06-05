@@ -61,7 +61,8 @@ window.ConditionBuilderComponent = {
         <input v-if="!['IS NULL','IS NOT NULL'].includes(cond.operator)"
                :value="cond.value"
                @input="updateCondition(idx, 'value', $event.target.value)"
-               placeholder="值"
+               :placeholder="cond.operator === 'IN' ? `('a','b')` : `'值'`"
+               :title="cond.operator === 'IN' ? `格式：('val1','val2')` : `字串值請加單引號，例如 'John'`"
                class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors flex-1 min-w-0" />
         <span v-else class="flex-1"></span>
         <!-- 刪除條件 -->
