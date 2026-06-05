@@ -369,6 +369,116 @@
         started.value = true
       }
 
+      const DEMO_SCHEMAS = [
+        {
+          label: '電商系統',
+          desc: 'MySQL · 5 張資料表',
+          dialect: 'mysql',
+          sql: `CREATE TABLE customers (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE categories (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  parent_id INT,
+  FOREIGN KEY (parent_id) REFERENCES categories(id)
+);
+
+CREATE TABLE products (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(200) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  stock INT DEFAULT 0,
+  category_id INT,
+  FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+CREATE TABLE orders (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  customer_id INT NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending',
+  total DECIMAL(10,2),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+
+CREATE TABLE order_items (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);`
+        },
+        {
+          label: '部落格系統',
+          desc: 'PostgreSQL · 5 張資料表',
+          dialect: 'postgresql',
+          sql: `CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  avatar_url VARCHAR(500),
+  bio TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  author_id INT NOT NULL,
+  title VARCHAR(300) NOT NULL,
+  slug VARCHAR(300) UNIQUE,
+  content TEXT,
+  status VARCHAR(20) DEFAULT 'draft',
+  published_at TIMESTAMP,
+  FOREIGN KEY (author_id) REFERENCES users(id)
+);
+
+CREATE TABLE comments (
+  id SERIAL PRIMARY KEY,
+  post_id INT NOT NULL,
+  author_id INT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (author_id) REFERENCES users(id)
+);
+
+CREATE TABLE tags (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE post_tags (
+  post_id INT NOT NULL,
+  tag_id INT NOT NULL,
+  PRIMARY KEY (post_id, tag_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (tag_id) REFERENCES tags(id)
+);`
+        }
+      ]
+
+      function loadDemo(demo) {
+        skipMode.value = true
+        saveDir.value = null
+        saveDirName.value = ''
+        rawDdl.value = demo.sql
+        dialect.value = demo.dialect
+        const result = window.parseDDL(demo.sql)
+        tables.value = result
+        selectedTable.value = result[0]?.tableName || ''
+        started.value = true
+        showToast(`已載入「${demo.label}」範例，共 ${result.length} 張資料表`)
+      }
+
       // 將目前查詢狀態存入 savedQueries
       function saveCurrentQuery() {
         const name = saveQueryName.value.trim() || `查詢 ${savedQueries.value.length + 1}`
@@ -474,7 +584,8 @@
         pickSaveDir, clearSaveDir,
         skipStart,
         isDark, toggleTheme,
-        copyHistorySql
+        copyHistorySql,
+        DEMO_SCHEMAS, loadDemo
       }
     },
     template: `
@@ -551,10 +662,27 @@
                 </div>
               </button>
 
-              <!-- 直接貼入 DDL（跳過存檔設定） -->
+              <!-- 分隔線 -->
+              <div class="flex items-center gap-3 pt-1">
+                <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+                <span class="text-[11px] text-zinc-400 dark:text-zinc-600 whitespace-nowrap">或直接試試範例</span>
+                <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+              </div>
+
+              <!-- Demo 範例資料（兩欄並排） -->
+              <div class="grid grid-cols-2 gap-2">
+                <button v-for="demo in DEMO_SCHEMAS" :key="demo.label"
+                        @click="loadDemo(demo)"
+                        class="group text-left px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
+                  <div class="text-sm font-medium text-zinc-800 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{{ demo.label }}</div>
+                  <div class="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">{{ demo.desc }}</div>
+                </button>
+              </div>
+
+              <!-- 空白開始 -->
               <button @click="skipStart"
-                      class="w-full text-center py-3 text-xs text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors">
-                先試試看，不儲存
+                      class="w-full text-center py-2 text-xs text-zinc-400 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors">
+                空白開始，不儲存
               </button>
             </div>
 
