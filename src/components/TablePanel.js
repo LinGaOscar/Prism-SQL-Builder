@@ -101,7 +101,7 @@ window.TablePanelComponent = {
            style="height: max(200px, calc(100vh - 600px));">
         <div v-for="tbl in displayTables" :key="tbl.tableName"
              class="shrink-0 flex flex-col border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden"
-             style="width: 200px; height: 100%;">
+             style="width: 240px; height: 100%;">
           <!-- 卡片標頭 -->
           <div class="flex items-center gap-1 px-2 py-1.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
             <h3 class="text-[11px] font-medium uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex-1 truncate" :title="tbl.tableName">
@@ -125,7 +125,7 @@ window.TablePanelComponent = {
                      class="accent-indigo-500 cursor-pointer shrink-0" />
               <label :for="'col-' + tbl.tableName + '-' + col.name"
                      class="text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer flex-1 min-w-0">
-                <span class="block truncate" :title="col.name">{{ col.name }}</span>
+                <span class="block break-all leading-snug">{{ col.name }}</span>
                 <span class="text-zinc-400 dark:text-zinc-500 text-[10px]">{{ col.type }}</span>
               </label>
               <span v-if="col.isPrimaryKey"
