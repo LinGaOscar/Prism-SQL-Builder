@@ -77,7 +77,7 @@ window.TablePanelComponent = {
       <div class="w-48 shrink-0 flex flex-col">
         <h3 class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">資料表</h3>
         <div v-if="tables.length === 0" class="text-zinc-400 dark:text-zinc-500 text-sm">尚未解析 DDL</div>
-        <ul name="table-list" class="overflow-y-auto custom-scrollbar border-r border-zinc-100 dark:border-zinc-800" style="max-height: max(200px, calc(100vh - 600px));">
+        <ul name="table-list" class="overflow-y-auto custom-scrollbar border-r border-zinc-100 dark:border-zinc-800" style="max-height: max(360px, calc(100vh - 480px));">
           <li v-for="t in tables" :key="t.tableName"
               @click="selectTable(t.tableName)"
               :class="[
@@ -98,7 +98,7 @@ window.TablePanelComponent = {
       <div v-if="joinMode && displayTables.length > 1"
            name="column-list-join"
            class="flex-1 min-w-0 flex gap-3 overflow-x-auto overflow-y-hidden pb-2 custom-scrollbar"
-           style="height: max(200px, calc(100vh - 600px));">
+           style="height: max(360px, calc(100vh - 480px));">
         <div v-for="tbl in displayTables" :key="tbl.tableName"
              class="shrink-0 flex flex-col border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden"
              style="width: 240px; height: 100%;">
@@ -139,7 +139,7 @@ window.TablePanelComponent = {
       <div v-else
            name="column-list"
            class="flex-1 min-w-0 pr-2 overflow-y-auto custom-scrollbar"
-           style="max-height: max(200px, calc(100vh - 600px));">
+           style="max-height: max(360px, calc(100vh - 480px));">
         <div v-if="displayTables.length === 0" class="text-zinc-400 dark:text-zinc-500 text-sm">請選擇資料表</div>
         <div v-else class="space-y-4">
           <div v-for="tbl in displayTables" :key="tbl.tableName">
