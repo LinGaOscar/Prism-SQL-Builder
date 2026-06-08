@@ -67,6 +67,8 @@
       const queryHistory = ref([])         // 複製時自動記錄，存 localStorage，最多 50 筆
 
       const browserWarningDismissed = ref(false)
+      // 線上試用版（GitHub Pages）限制部分功能，避免使用者誤以為資料會被保存
+      const isOnlineDemo = window.location.hostname === 'lingaoscar.github.io'
 
       // 深色/淺色模式切換（預設讀 localStorage，避免 onMounted 前閃爍）
       const _savedTheme = localStorage.getItem('prism_theme') || 'light'
@@ -585,7 +587,8 @@ CREATE TABLE post_tags (
         skipStart,
         isDark, toggleTheme,
         copyHistorySql,
-        DEMO_SCHEMAS, loadDemo
+        DEMO_SCHEMAS, loadDemo,
+        isOnlineDemo
       }
     },
     template: `
@@ -761,29 +764,48 @@ CREATE TABLE post_tags (
             </div>
             <!-- FSA 支援時顯示開啟/儲存；不支援時顯示匯入/匯出 -->
             <template v-if="fsSupported">
-              <button @click="openFromFile"
-                      class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              <button @click="!isOnlineDemo && openFromFile()"
+                      :disabled="isOnlineDemo"
+                      :title="isOnlineDemo ? '線上試用版不支援此功能' : ''"
+                      :class="['text-xs px-3 py-1.5 rounded-md border transition-colors',
+                               isOnlineDemo
+                                 ? 'border-zinc-100 dark:border-zinc-800 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
+                                 : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800']">
                 開啟
               </button>
-              <button @click="saveToFile"
-                      class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
+              <button @click="!isOnlineDemo && saveToFile()"
+                      :disabled="isOnlineDemo"
+                      :title="isOnlineDemo ? '線上試用版不支援此功能' : ''"
+                      :class="['text-xs px-3 py-1.5 rounded-md font-medium transition-colors',
+                               isOnlineDemo
+                                 ? 'bg-indigo-200 dark:bg-indigo-900 text-indigo-300 dark:text-indigo-600 cursor-not-allowed'
+                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white']">
                 {{ fileHandle ? '儲存' : '另存新檔' }}
               </button>
             </template>
             <template v-else>
-              <label class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+              <label :class="['text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 transition-colors',
+                              isOnlineDemo ? 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer']"
+                     :title="isOnlineDemo ? '線上試用版不支援此功能' : ''">
                 匯入
-                <input type="file" accept=".md,.txt" class="hidden" @change="importFromInput" />
+                <input v-if="!isOnlineDemo" type="file" accept=".md,.txt" class="hidden" @change="importFromInput" />
               </label>
-              <button @click="exportFile"
-                      class="text-xs px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium">
+              <button @click="!isOnlineDemo && exportFile()"
+                      :disabled="isOnlineDemo"
+                      :title="isOnlineDemo ? '線上試用版不支援此功能' : ''"
+                      :class="['text-xs px-3 py-1.5 rounded-md font-medium transition-colors',
+                               isOnlineDemo
+                                 ? 'bg-indigo-200 dark:bg-indigo-900 text-indigo-300 dark:text-indigo-600 cursor-not-allowed'
+                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white']">
                 匯出
               </button>
             </template>
-            <!-- DDL 匯入/追加：移至此處，緊接在儲存按鈕右側 -->
-            <label class="text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+            <!-- DDL 匯入/追加 -->
+            <label :class="['text-xs px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 transition-colors',
+                            isOnlineDemo ? 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer']"
+                   :title="isOnlineDemo ? '線上試用版不支援此功能' : ''">
               {{ tables.length > 0 ? '追加 .sql' : '匯入 .sql' }}
-              <input type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
+              <input v-if="!isOnlineDemo" type="file" accept=".sql,.txt" class="hidden" @change="importSqlFile" />
             </label>
           </div>
         </header>
@@ -920,10 +942,23 @@ CREATE TABLE post_tags (
 
         <!-- Query History 頁籤內容：複製時自動記錄，最多 50 筆 -->
         <div v-show="activeTab === 'history'" class="pt-4">
-          <div v-if="queryHistory.length === 0" class="text-xs text-zinc-400 dark:text-zinc-500 text-center py-8">
+          <!-- 線上試用版提示：本地版才支援歷史紀錄 -->
+          <div v-if="isOnlineDemo" class="flex flex-col items-center justify-center py-16 gap-3">
+            <span class="text-2xl">🔒</span>
+            <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">試用版不支援此功能</p>
+            <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center max-w-xs leading-relaxed">
+              查詢歷史記錄需要本地儲存支援。請下載專案並在本地開啟，即可使用完整功能。
+            </p>
+            <a href="https://github.com/LinGaOscar/Prism-SQL-Builder"
+               target="_blank"
+               class="mt-2 text-xs px-4 py-2 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              前往 GitHub 下載
+            </a>
+          </div>
+          <div v-else-if="queryHistory.length === 0" class="text-xs text-zinc-400 dark:text-zinc-500 text-center py-8">
             尚無記錄，複製 SQL 後自動儲存
           </div>
-          <div v-else>
+          <div v-else-if="!isOnlineDemo">
             <div class="flex items-center justify-between mb-3">
               <span class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">{{ queryHistory.length }} 筆記錄</span>
               <button @click="clearHistory"
