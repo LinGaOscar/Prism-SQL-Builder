@@ -839,8 +839,10 @@ CREATE TABLE post_tags (
             </div>
           </div>
 
-          <!-- 主工作區：左欄 Table/Column，右欄 SQL 預覽 + 所有條件設定 -->
-          <div v-if="tables.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <!-- 主工作區：LEFT 欄位區在 JOIN 模式下自動加寬（3:2），單表維持 1:1 -->
+          <div v-if="tables.length > 0"
+               :class="['grid grid-cols-1 gap-6 items-start',
+                        joinMode && joins.length > 0 ? 'grid-join-active' : 'grid-join-default']">
 
             <!-- 左欄：資料表清單 + 欄位勾選 -->
             <TablePanel

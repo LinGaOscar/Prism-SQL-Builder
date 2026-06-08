@@ -40,3 +40,26 @@
 
 /* focus ring */
 :focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 3px; }
+
+/* JOIN FK 欄位 badge */
+.join-fk-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  letter-spacing: 0.05em;
+}
+.dark .join-fk-badge {
+  background: #082f49;
+  color: #38bdf8;
+  border-color: #075985;
+}
+
+/* JOIN 啟用時左側欄位區在大螢幕佔 3fr，右側佔 2fr */
+@media (min-width: 1024px) {
+  .grid-join-active  { grid-template-columns: 3fr 2fr; }
+  .grid-join-default { grid-template-columns: 1fr 1fr; }
+}
