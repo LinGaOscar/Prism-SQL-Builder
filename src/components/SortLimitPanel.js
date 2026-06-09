@@ -6,10 +6,12 @@ window.SortLimitPanelComponent = {
     columns: Array,   // ColumnDef[]
     orderBy: Array,   // [{ column, direction }]
     limit: Number,
-    offset: Number
+    offset: Number,
+    dialect: String   // 'mysql' | 'postgresql' | 'mssql' | 'oracle'
   },
-  emits: ['update-order-by', 'update-limit', 'update-offset'],
+  emits: ['update-order-by', 'update-limit', 'update-offset', 'update-dialect'],
   setup(props, { emit }) {
+    const DIALECTS = [['mysql','MySQL'],['postgresql','PG'],['mssql','MSSQL'],['oracle','Oracle']]
     function addSort() {
       const first = props.columns[0]?.name || ''
       emit('update-order-by', [...props.orderBy, { column: first, direction: 'ASC' }])
@@ -22,7 +24,7 @@ window.SortLimitPanelComponent = {
         i === idx ? { ...s, [field]: val } : s
       ))
     }
-    return { addSort, removeSort, updateSort }
+    return { addSort, removeSort, updateSort, DIALECTS }
   },
   template: `
     <div class="flex flex-col gap-4">
@@ -53,8 +55,8 @@ window.SortLimitPanelComponent = {
                   class="text-zinc-300 dark:text-zinc-600 hover:text-red-500 text-xs px-1 transition-colors">✕</button>
         </div>
       </div>
-      <!-- LIMIT / OFFSET：分頁控制；OFFSET 只在有設 LIMIT 時才有意義 -->
-      <div class="flex items-center gap-4">
+      <!-- LIMIT / OFFSET 與方言：分頁語法因資料庫而異，三者放同一列強調關聯性 -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div class="flex items-center gap-2">
           <label class="text-xs text-zinc-500 dark:text-zinc-400">LIMIT</label>
           <input type="number" min="0"
@@ -70,6 +72,17 @@ window.SortLimitPanelComponent = {
                  @input="$emit('update-offset', parseInt($event.target.value) || 0)"
                  placeholder="0"
                  class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 focus:border-indigo-400 outline-none transition-colors w-24" />
+        </div>
+        <!-- 方言選擇器：僅影響分頁語法，與 LIMIT/OFFSET 並排以提示關聯 -->
+        <div class="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium ml-auto shrink-0">
+          <button v-for="d in DIALECTS" :key="d[0]"
+                  @click="$emit('update-dialect', d[0])"
+                  :class="['px-2.5 py-1.5 transition-colors border-r border-zinc-200 dark:border-zinc-700 last:border-r-0',
+                           dialect === d[0]
+                             ? 'bg-indigo-600 text-white'
+                             : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700']">
+            {{ d[1] }}
+          </button>
         </div>
       </div>
     </div>

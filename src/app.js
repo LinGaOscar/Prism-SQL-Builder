@@ -726,18 +726,6 @@ CREATE TABLE post_tags (
                   class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 tabular-nums">
               {{ tables.length }} 張資料表
             </span>
-            <!-- 方言選擇器：分段按鈕，選中高亮，一眼知道目前設定 -->
-            <div class="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium shrink-0">
-              <button v-for="d in [['mysql','MySQL'],['postgresql','PG'],['mssql','MSSQL'],['oracle','Oracle']]"
-                      :key="d[0]"
-                      @click="dialect = d[0]"
-                      :class="['px-2.5 py-1.5 transition-colors border-r border-zinc-200 dark:border-zinc-700 last:border-r-0',
-                               dialect === d[0]
-                                 ? 'bg-indigo-600 text-white'
-                                 : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700']">
-                {{ d[1] }}
-              </button>
-            </div>
             <!-- 深色/淺色模式切換按鈕 -->
             <!-- 主題切換：顯示「目前狀態」文字，點擊切換至另一模式 -->
             <button @click="toggleTheme"
@@ -917,9 +905,11 @@ CREATE TABLE post_tags (
                     :order-by="orderBy"
                     :limit="limit"
                     :offset="offset"
+                    :dialect="dialect"
                     @update-order-by="orderBy = $event"
                     @update-limit="limit = $event"
                     @update-offset="offset = $event"
+                    @update-dialect="dialect = $event"
                   />
                 </div>
               </template>
